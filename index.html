@@ -246,6 +246,8 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .filecard .fname{font-family:var(--mono);font-size:12px;font-weight:600}
 .filecard .fmeta{font-size:11.5px;color:var(--muted)}
 .filecard .spacer{flex:1}
+.filecard .fstats{display:none;flex-basis:100%;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint);font-family:var(--mono);line-height:1.6}
+.filecard .fstats.show{display:block}
 .auto-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
 .auto-hint{font-size:10.5px;color:var(--faint);line-height:1.5}
 .auto-hint code{font-family:var(--mono);background:var(--surface-3);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink-soft)}
@@ -259,7 +261,7 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .raw-block .raw-sub{margin:6px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
 .raw-body{margin-top:14px;display:flex;flex-direction:column;gap:12px}
 .raw-date{max-width:220px}
-.raw-progwrap{display:flex;align-items:center;gap:12px}
+.raw-progwrap{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px}
 .shared-badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--good-strong);background:var(--good-soft);border:1px solid rgba(46,230,160,.3);border-radius:999px;padding:6px 12px}
 .shared-badge i{width:5px;height:5px;border-radius:50%;background:var(--good-strong);box-shadow:0 0 8px var(--good-strong);flex-shrink:0}
 
@@ -662,7 +664,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       </div>
     </div>
     <input type="file" id="fileInputRaw" accept=".csv" hidden>
-    <div class="raw-progwrap">
+    <div class="raw-progwrap" id="rawProgWrap">
       <div class="progress" id="rawProg"><div id="rawProgbar"></div></div>
       <span class="runstatus" id="rawStatus"></span>
     </div>
@@ -715,6 +717,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
         <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
         Remover
       </button>
+      <span class="fstats" id="fstats"></span>
     </div>
     <div class="card filters" id="filtersCard">
       <div class="filters-grid">
@@ -1362,6 +1365,10 @@ $("btnClear").addEventListener("click", ()=>{
   fileName = "";
   $("filecard").classList.remove("show");
   $("filtersCard").classList.remove("show");
+  $("fstats").classList.remove("show");
+  $("sharedInfoWrap").style.display = "none";
+  $("btnSaveRawCsvWrap").style.display = "none";
+  lastRawGroupedRows = null;
   hideAlerts();
   hideResults();
   refreshRunState();
@@ -1930,6 +1937,8 @@ async function loadRawFile(file){
   hideAlerts();
   hideResults();
   $("btnSaveRawCsvWrap").style.display = "none";
+  $("sharedInfoWrap").style.display = "none";
+  $("fstats").classList.remove("show");
   lastRawGroupedRows = null;
 
   if(!/\.csv$/i.test(file.name)){
@@ -1946,6 +1955,7 @@ async function loadRawFile(file){
   const [y, m, d] = dataInputStr.split("-").map(Number);
   const dataInputMs = Date.UTC(y, m-1, d);
 
+  $("rawProgWrap").style.display = "flex";
   $("rawProg").classList.add("show");
   $("rawProgbar").style.width = "0%";
   $("rawStatus").textContent = "Lendo arquivo...";
@@ -1970,12 +1980,9 @@ async function loadRawFile(file){
       lastRawGroupedRows = rows;
       $("btnSaveRawCsvWrap").style.display = "flex";
 
-      showWarn(
-        `Base bruta processada no navegador: ${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas, ` +
-        `${stats.foraStatus.toLocaleString("pt-BR")} descartadas por Status diferente de "A", ` +
-        `${stats.dataInvalida.toLocaleString("pt-BR")} descartadas por dados inválidos/incompletos, ` +
-        `${stats.ccbs.toLocaleString("pt-BR")} CCBs agrupados. Já pode rodar a modalidade de viabilidade abaixo.`
-      );
+      const fstats = $("fstats");
+      fstats.textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas · ${stats.ccbs.toLocaleString("pt-BR")} CCBs agrupados`;
+      fstats.classList.add("show");
     }
 
   }catch(err){
@@ -1983,7 +1990,10 @@ async function loadRawFile(file){
     showErr("Não foi possível processar a base bruta.\n" + err.message);
 
   }finally{
-    setTimeout(()=>{ $("rawProg").classList.remove("show"); }, 900);
+    setTimeout(()=>{
+      $("rawProg").classList.remove("show");
+      $("rawProgWrap").style.display = "none";
+    }, 900);
   }
 }
 
