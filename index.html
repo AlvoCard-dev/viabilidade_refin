@@ -1,0 +1,2457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refinanciamento FIDC — Relatório de Viabilidade</title>
+<meta name="description" content="Motor de cálculo de refinanciamento FIDC: viabilidade, taxa de recompra e ágio por CCB.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Cpath d='M8 20l5-9 4 6 3-4 4 7' stroke='%2322C55E' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ─────────────────────────────────────────────────────────
+   Refinanciamento FIDC — Motor de Cálculo
+   Design: dark sutil (slate), compacto, sidebar + stage
+───────────────────────────────────────────────────────── */
+:root{
+  --bg:#0F172A;
+  --bg-2:#0B1220;
+  --surface:#1A2236;
+  --surface-2:#1A2236;
+  --surface-3:#232D45;
+  --ink:#F1F5F9;
+  --ink-soft:#CBD5E1;
+  --muted:#94A3B8;
+  --faint:#7C8BA8;
+  --line:#26314B;
+  --line-dark:#37456A;
+  --accent:#3B82F6;
+  --accent-2:#60A5FA;
+  --accent-soft:#1B2C4D;
+  --good:#22C55E;
+  --good-strong:#22C55E;
+  --good-soft:#132A21;
+  --bad:#F87171;
+  --bad-soft:#341F26;
+  --warn:#F59E0B;
+  --warn-soft:#332512;
+  --track:#232D45;
+  --mono:'JetBrains Mono',Consolas,monospace;
+  --sans:'IBM Plex Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  --r-sm:6px;
+  --r:8px;
+  --r-lg:10px;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --dur:150ms;
+  --shadow:none;
+  --shadow-md:0 1px 3px rgba(0,0,0,.35);
+  --shadow-inset:none;
+  --side-w:300px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--bg);color-scheme:dark}
+body{
+  min-height:100vh;display:flex;flex-direction:column;color:var(--ink);font-family:var(--sans);
+  font-size:14.5px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  background:var(--bg);
+}
+svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.14em}
+::selection{background:var(--accent-soft);color:var(--ink)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-dark);border-radius:999px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--faint)}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
+}
+
+.container{width:100%;max-width:1760px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+
+/* ── Tela de acesso ── */
+#authGate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:
+    radial-gradient(560px 420px at 50% 18%, rgba(59,130,246,.10), transparent 65%),
+    radial-gradient(480px 380px at 82% 88%, rgba(34,197,94,.06), transparent 60%),
+    var(--bg-2);
+  padding:24px;animation:gateIn .35s var(--ease)}
+@keyframes gateIn{from{opacity:0}to{opacity:1}}
+#authGate .gate-brand{display:flex;align-items:center;gap:10px}
+#authGate .gate-brand-logo{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--line-dark);color:var(--good)}
+#authGate .gate-brand-logo svg{width:17px;height:17px}
+#authGate .gate-brand-text{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+#authGate .gate-brand-text span{color:var(--faint);font-weight:500}
+#authGate .gate-card{width:100%;max-width:340px;padding:32px 28px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);text-align:center;box-shadow:0 24px 60px -20px rgba(0,0,0,.55)}
+#authGate .gate-icon{width:44px;height:44px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--surface-3);border:1px solid var(--line-dark);color:var(--muted)}
+#authGate .gate-icon svg{width:20px;height:20px}
+#authGate h2{font-size:16px;font-weight:700;margin-bottom:6px;color:var(--ink);letter-spacing:-.01em}
+#authGate p{font-size:12.5px;color:var(--muted);margin-bottom:22px;line-height:1.55}
+#authGate .gate-field{position:relative;margin-bottom:8px}
+#authGate .gate-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#authGate input{width:100%;height:44px;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);color:var(--ink);font-family:var(--mono);font-size:14px;padding:8px 44px 8px 14px;letter-spacing:.02em;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+#authGate input:hover{border-color:var(--faint)}
+#authGate input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+#authGate input.invalid{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+#authGate .gate-toggle{position:absolute;right:4px;top:4px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:none;border:0;border-radius:6px;color:var(--faint);cursor:pointer;touch-action:manipulation;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
+#authGate .gate-toggle:hover{color:var(--ink-soft);background:var(--surface-3)}
+#authGate .gate-toggle svg{width:16px;height:16px}
+#authGate .gate-err{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11.5px;color:var(--bad);min-height:16px;margin:10px 0 4px;opacity:0;transition:opacity var(--dur) var(--ease)}
+#authGate .gate-err.show{opacity:1}
+#authGate button[type=submit]{width:100%;height:44px;justify-content:center;margin-top:8px}
+#authGate .gate-foot{font-size:10.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
+#authGate .gate-foot i{width:5px;height:5px;border-radius:50%;background:var(--good)}
+@media (prefers-reduced-motion:reduce){#authGate{animation:none}}
+
+/* ── Header ── */
+.hd{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.92);border-bottom:1px solid var(--line)}
+.hd-in{min-height:52px;padding:9px 0;display:flex;align-items:center;gap:10px}
+.hd-logo{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:28px;height:28px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--line-dark);color:var(--muted)}
+.hd-logo svg{width:15px;height:15px}
+.hd-brand{display:flex;flex-direction:column;gap:0}
+.hd-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink);display:flex;align-items:center}
+.hd-badge{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--muted);background:var(--surface-3);border:1px solid var(--line-dark);border-radius:5px;padding:2px 6px;margin-left:8px}
+.hd-sub{display:none}
+.hd-meta{margin-left:auto;display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.hd-meta svg{margin-right:-2px}
+.hd-conf{display:inline-flex;align-items:center;gap:5px;color:var(--warn);border:1px solid var(--line-dark);background:var(--warn-soft);border-radius:5px;padding:2.5px 7px;font-weight:700;letter-spacing:.03em}
+.hd-local{display:inline-flex;align-items:center;gap:6px}
+.hd-local i{width:5px;height:5px;border-radius:50%;background:var(--good)}
+
+/* ── Shell: sidebar de configuração + palco principal ── */
+.shell{flex:1;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);column-gap:28px;align-items:start;padding-top:24px}
+.side{position:sticky;top:70px;display:flex;flex-direction:column;gap:22px;max-height:calc(100vh - 90px);overflow-y:auto;padding-bottom:24px}
+.stage{min-width:0;padding-bottom:70px}
+
+/* ── Cabeçalhos de seção ── */
+.side-head{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.side-head .s-n{width:20px;height:20px;font-size:9.5px}
+.side-head h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.sec{margin-top:28px;scroll-margin-top:80px}
+.sec:first-child{margin-top:0}
+.s-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.s-n{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1px solid var(--line-dark);background:var(--surface);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
+.s-head h2{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.s-head .hint{margin-left:auto;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+
+/* ── Card ── */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+
+/* ── Botões ── */
+.btn{appearance:none;border:1px solid transparent;cursor:pointer;touch-action:manipulation;border-radius:var(--r-sm);font-family:var(--sans);font-weight:600;font-size:13.5px;padding:10px 18px;display:inline-flex;align-items:center;gap:7px;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),opacity var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.btn:active:not([disabled]){transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-2)}
+.btn-ghost{background:var(--surface-3);color:var(--ink);border-color:var(--line-dark)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-2)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn:focus-visible,.mode:focus-visible,.drop:focus-visible,.template-select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.linkbtn,.rmv{background:none;border:0;cursor:pointer;touch-action:manipulation;text-decoration:none;font-family:var(--sans);font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.linkbtn{color:var(--accent-2)}
+.linkbtn:hover{text-decoration:underline}
+.rmv{color:var(--bad)}
+.rmv:hover{text-decoration:underline}
+
+/* ── Modalidades: lista compacta ── */
+.modes{display:flex;flex-direction:column;gap:5px}
+.mode{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;touch-action:manipulation;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.mode:hover{border-color:var(--line-dark);background:var(--surface-3);transform:translateX(1px)}
+.mode:active{transform:scale(.995)}
+.mode-top{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.mode-top:before{content:"";flex-shrink:0;width:7px;height:7px;border:1.5px solid var(--line-dark);border-radius:50%;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.mode-icon{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:var(--surface-3);border:1px solid var(--line);color:var(--muted);transition:background var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.mode-icon svg{width:13px;height:13px}
+.mode.sel{border-color:var(--accent);background:var(--surface-3)}
+.mode.sel .mode-icon{background:var(--accent);color:#fff;border-color:transparent}
+.mode.sel .mode-top:before{border-color:var(--accent);background:var(--accent)}
+.mode .chk{display:none}
+.mode h3{font-size:12.5px;font-weight:600;color:var(--ink);letter-spacing:-.005em;flex:1;min-width:0}
+.mode .desc{display:none;width:100%;font-size:11px;color:var(--muted);line-height:1.55;margin-top:2px;padding-left:33px}
+.mode.sel .desc{display:block}
+.mode .crit{display:none}
+
+/* ── Parâmetros ── */
+.params{padding:16px}
+.params-grid{display:grid;grid-template-columns:1fr;gap:14px}
+.field label{display:block;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}
+.field .inwrap{position:relative}
+.field input,.template-select{width:100%;height:38px;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);color:var(--ink);font-family:var(--mono);font-size:13px;font-weight:500;padding:8px 10px;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.field input[type=number]{padding-right:70px}
+.field input:hover{border-color:var(--faint)}
+.field input:focus,.template-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field input.invalid{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+.field .unit{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--faint);background:var(--surface-3);border-radius:4px;padding:3px 6px;pointer-events:none;letter-spacing:.01em}
+.field .slider{-webkit-appearance:none;appearance:none;width:100%;height:3px;margin-top:14px;background:var(--track);border-radius:999px;outline:none;cursor:pointer}
+.field .slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ink-soft);border:2px solid var(--bg-2);box-shadow:0 0 0 1px var(--line-dark);transition:transform var(--dur) var(--ease)}
+.field .slider::-webkit-slider-thumb:hover{transform:scale(1.15)}
+.field .slider::-moz-range-track{height:3px;background:var(--track);border-radius:999px}
+.field .slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--ink-soft);border:2px solid var(--bg-2);box-shadow:0 0 0 1px var(--line-dark)}
+.field .slider:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.params-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--faint)}
+.params-empty{min-height:90px;border:1.5px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--faint);padding:16px}
+
+/* ── Arquivo ── */
+.drop{min-height:96px;border:1.5px dashed var(--line-dark);border-radius:var(--r);background:var(--surface);padding:16px 20px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;gap:14px;text-align:left;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.drop:hover,.drop.over{border-color:var(--line-dark);background:var(--surface-3)}
+.drop-icon{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--line);color:var(--muted)}
+.drop-icon svg{width:18px;height:18px}
+.drop .big{font-size:14px;font-weight:700;color:var(--ink)}
+.drop .sub{font-size:12px;color:var(--muted);line-height:1.45;margin-top:2px}
+.filecard{display:none;margin-top:10px;padding:10px 14px;align-items:center;gap:12px;flex-wrap:wrap}
+.filecard.show{display:flex}
+.filecard .ficon{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:var(--r-sm);background:var(--good-soft);color:var(--good)}
+.filecard .ficon svg{width:13px;height:13px}
+.filecard .fname{font-family:var(--mono);font-size:12px;font-weight:600}
+.filecard .fmeta{font-size:11.5px;color:var(--muted)}
+.filecard .spacer{flex:1}
+.auto-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.auto-hint{font-size:10.5px;color:var(--faint);line-height:1.5}
+.auto-hint code{font-family:var(--mono);background:var(--surface-3);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink-soft)}
+
+/* ── Base bruta (gera o agrupado por CCB no navegador) ── */
+.raw-block{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.raw-block>summary{cursor:pointer;list-style:none;font-size:12.5px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;gap:8px;touch-action:manipulation}
+.raw-block>summary::-webkit-details-marker{display:none}
+.raw-block>summary:before{content:"▸";color:var(--faint);font-size:10px;transition:transform var(--dur) var(--ease)}
+.raw-block[open]>summary:before{transform:rotate(90deg)}
+.raw-block .raw-sub{margin:6px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
+.raw-body{margin-top:14px;display:flex;flex-direction:column;gap:12px}
+.raw-date{max-width:220px}
+.raw-progwrap{display:flex;align-items:center;gap:12px}
+
+/* ── Card de confiança/metodologia (sidebar) ── */
+.trust-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
+.trust-card>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--muted);touch-action:manipulation}
+.trust-card>summary::-webkit-details-marker{display:none}
+.trust-card>summary svg{width:14px;height:14px;color:var(--faint);flex-shrink:0}
+.trust-card>summary:hover{color:var(--ink-soft)}
+.trust-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.trust-body dt{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.trust-body dd{font-size:11.5px;color:var(--muted);line-height:1.5}
+.trust-note{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint);line-height:1.5}
+
+/* ── Filtros ── */
+.filters{margin-top:12px;padding:16px;display:none}
+.filters.show{display:block}
+.filters-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.filter-col{display:flex;flex-direction:column;gap:6px}
+.filter-head{display:flex;align-items:baseline;gap:8px}
+.filter-head label{font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.filter-actions{margin-left:auto;display:flex;gap:8px}
+.filter-search{width:100%;height:30px;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);color:var(--ink);font-family:var(--sans);font-size:12px;padding:5px 9px;transition:border-color var(--dur) var(--ease)}
+.filter-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.filter-list{max-height:180px;overflow-y:auto;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);padding:4px}
+.filter-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;font-size:12px;color:var(--ink-soft);cursor:pointer}
+.filter-opt:hover{background:var(--surface-3)}
+.filter-opt input{width:14px;height:14px;flex-shrink:0;cursor:pointer;accent-color:var(--muted)}
+.filter-opt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filter-opt[hidden]{display:none}
+.filters-foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* ── Processar ── */
+.runbar{padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.runinfo{font-size:12.5px;color:var(--muted)}
+.runinfo b{color:var(--ink);font-weight:600}
+.progress{flex:1 1 180px;height:4px;background:var(--track);border-radius:999px;overflow:hidden;display:none}
+.progress.show{display:block}
+.progress>div{height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .15s var(--ease)}
+.runstatus{min-width:110px;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--muted)}
+.alert{display:none;align-items:flex-start;gap:10px;margin-top:12px;border-radius:var(--r-sm);padding:11px 14px;border:1px solid;font-size:12.5px;line-height:1.5;white-space:pre-wrap}
+.alert.show{display:flex}
+.alert:before{content:"";flex-shrink:0;width:16px;height:16px;margin-top:1px;background-repeat:no-repeat;background-position:center;background-size:contain}
+.alert.err{border-color:#5A2530;background:var(--bad-soft);color:var(--bad)}
+.alert.err:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F87171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cline x1='12' y1='8' x2='12' y2='13'/%3E%3Cline x1='12' y1='16.5' x2='12.01' y2='16.5'/%3E%3C/svg%3E")}
+.alert.warn{border-color:#4D3A17;background:var(--warn-soft);color:var(--warn)}
+.alert.warn:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F59E0B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L14.7 3.9a2 2 0 0 0-3.4 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='16.5' x2='12.01' y2='16.5'/%3E%3C/svg%3E")}
+
+/* ── Resultados ── */
+#results{display:none}
+#results.show{display:block;animation:fadeUp .25s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.gen-time{margin-bottom:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.summary-card{margin-bottom:18px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line-dark);border-radius:var(--r);overflow:hidden}
+.exec-summary{position:relative;padding:14px 18px 14px 50px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+.exec-summary b{color:var(--ink);font-weight:700}
+.exec-summary .es-icon{position:absolute;left:14px;top:14px;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--muted)}
+.exec-summary .es-icon svg{width:14px;height:14px}
+.paramsum{display:flex;flex-wrap:wrap;gap:7px 9px;padding:11px 18px;border-top:1px solid var(--line)}
+.paramsum .chip{display:inline-flex;align-items:baseline;gap:5px;background:var(--surface-3);border:1px solid var(--line-dark);border-radius:5px;padding:3px 9px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.paramsum .chip b{color:var(--ink-soft);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── Filtros do dashboard ── */
+.filters-card{margin-bottom:18px;padding:14px 18px}
+.filters-card-title{display:flex;align-items:center;gap:7px;margin-bottom:12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.filters-card-title svg{width:13px;height:13px;color:var(--faint)}
+.dash-filters{display:flex;gap:26px;flex-wrap:wrap}
+.filter-group{flex:1;min-width:260px}
+.filter-group + .filter-group{border-left:1px solid var(--line);padding-left:26px}
+.tr-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.tr-head label{font-size:11.5px;font-weight:600;color:var(--ink-soft)}
+.tr-info{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.tr-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tr-field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.tr-field input{width:76px;height:32px;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);color:var(--ink);font-family:var(--mono);font-size:12.5px;padding:4px 8px}
+.tr-field input:focus{outline:none;border-color:var(--accent)}
+.tr-field select{height:32px;border:1px solid var(--line-dark);border-radius:var(--r-sm);background:var(--bg-2);color:var(--ink);font-family:var(--mono);font-size:12px;padding:4px 8px}
+.tr-field select:focus{outline:none;border-color:var(--accent)}
+#concPercentual{width:56px}
+.tr-unit{font-family:var(--mono);font-size:10px;color:var(--faint)}
+
+/* ── Indicadores ── */
+.section-label{display:flex;align-items:center;gap:8px;margin:22px 0 10px;font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.07em}
+.section-label:first-of-type{margin-top:0}
+.section-label:after{content:"";flex:1;height:1px;background:var(--line)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:6px}
+.kpis-hero{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.kpis-money{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:6px}
+.kpi{position:relative;min-width:0;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.kpi:hover{border-color:var(--line-dark);box-shadow:0 6px 18px -10px rgba(0,0,0,.5);transform:translateY(-1px)}
+.kpi .k-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kpi .k-lab{font-family:var(--mono);font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.kpi .k-icon{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;background:var(--surface-3);color:var(--muted);flex-shrink:0}
+.kpi .k-icon svg{width:11px;height:11px}
+.kpi .k-val{font-family:var(--mono);font-size:22px;font-weight:700;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-variant-numeric:tabular-nums}
+.kpi .k-val.money{font-size:15px}
+.kpi.good .k-val{color:var(--good)}
+.kpi.good .k-icon{background:var(--good-soft);color:var(--good)}
+.kpi.bad .k-val{color:var(--bad)}
+.kpi.bad .k-icon{background:var(--bad-soft);color:var(--bad)}
+.kpi.hero{background:linear-gradient(180deg,var(--surface-3),var(--surface));border-color:var(--line-dark)}
+.kpi.hero .k-icon{background:var(--surface-3);color:var(--muted)}
+.kpi.hero .k-val{font-size:26px}
+.kpi.hero .k-val.money{font-size:19px}
+.kpi.hero.good .k-icon{background:var(--good-soft);color:var(--good)}
+
+/* ── Gráficos ── */
+.charts-row{display:grid;grid-template-columns:180px minmax(0,1fr);gap:14px;margin-bottom:16px}
+.chart-card{padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.chart-card .c-title{font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.donut-wrap{display:flex;align-items:center;justify-content:center}
+.donut{width:120px;height:120px}
+.donut circle:nth-child(2){transition:stroke-dasharray .5s var(--ease)}
+.donut-pct{font-family:var(--mono);font-size:19px;font-weight:800;fill:var(--ink)}
+.donut-lab{font-family:var(--sans);font-size:9.5px;fill:var(--faint)}
+.donut-legend{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--muted)}
+.donut-legend span{display:inline-flex;align-items:center;gap:6px}
+.donut-legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.bar-row{display:grid;grid-template-columns:130px minmax(0,1fr) 100px;align-items:center;gap:10px;margin-bottom:9px;font-size:11.5px}
+.bar-row:last-child{margin-bottom:0}
+.bar-label{color:var(--muted)}
+.bar-track{height:7px;background:var(--track);border-radius:999px;overflow:hidden}
+.bar-fill{display:block;height:100%;background:var(--faint);border-radius:999px;transition:width .5s var(--ease)}
+.bar-val{font-family:var(--mono);color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.bar-val b{color:var(--faint);font-weight:500}
+.tablewrap{max-height:58vh;overflow:auto}
+table.res{border-collapse:collapse;width:100%;font-size:12px}
+table.res th{position:sticky;top:0;z-index:1;background:var(--surface-3);color:var(--muted);padding:10px 14px;text-align:right;white-space:nowrap;font-family:var(--mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line-dark)}
+table.res th:first-child{text-align:left}
+table.res td{border-top:1px solid var(--line);padding:9px 14px;text-align:right;white-space:nowrap;font-family:var(--mono);color:var(--ink-soft);font-variant-numeric:tabular-nums}
+table.res td:first-child{text-align:left;font-variant-numeric:normal}
+table.res tbody tr:first-child td{border-top:0}
+table.res tbody tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+table.res tbody tr:hover td{background:var(--surface-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 9px 3px 7px;font-size:10.5px;font-weight:600;font-family:var(--sans)}
+.pill svg{width:10px;height:10px}
+.pill.v{background:var(--good-soft);color:var(--good)}
+.pill.i{background:var(--bad-soft);color:var(--bad)}
+.res-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.truncnote{margin-top:8px;font-size:11.5px;color:var(--faint)}
+
+/* ── Rodapé ── */
+.ft{border-top:1px solid var(--line);margin-top:40px}
+.ft-in{height:44px;display:flex;align-items:center;gap:22px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.ft-in span{display:inline-flex;align-items:center;gap:6px}
+
+/* ── Responsivo ── */
+@media(max-width:1100px){
+  .shell{display:block;padding-top:16px}
+  .side{position:static;max-height:none;overflow:visible;margin-bottom:24px}
+}
+@media(max-width:760px){
+  .hd-meta{display:none}
+  .hd-logo{display:none}
+  .s-head .hint{display:none}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpis-hero{grid-template-columns:1fr}
+  .kpis-money{grid-template-columns:1fr}
+  .charts-row{grid-template-columns:1fr}
+  .filter-group + .filter-group{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
+  .bar-row{grid-template-columns:90px minmax(0,1fr) 80px}
+  .drop{flex-direction:column;text-align:center}
+  .drop-icon{width:36px;height:36px}
+  .ft-in{height:auto;flex-direction:column;align-items:flex-start;gap:8px;padding:14px 0}
+}
+
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <div class="gate-brand" aria-hidden="true">
+    <span class="gate-brand-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-8 4 5 3-4 6 9"/></svg>
+    </span>
+    <span class="gate-brand-text">Refinanciamento <span>FIDC</span></span>
+  </div>
+  <form class="gate-card" id="gateForm" novalidate>
+    <span class="gate-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+    </span>
+    <h2>Acesso restrito</h2>
+    <p>Ferramenta interna — digite a senha de acesso para continuar.</p>
+    <div class="gate-field">
+      <label class="gate-label" for="gatePassword">Senha</label>
+      <input id="gatePassword" type="password" placeholder="Senha" autocomplete="off" autofocus>
+      <button class="gate-toggle" id="gateToggle" type="button" aria-label="Mostrar senha" aria-pressed="false">
+        <svg class="ic-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div class="gate-err" id="gateErr" role="alert" aria-live="polite"></div>
+    <button class="btn btn-primary" type="submit">Entrar</button>
+  </form>
+  <span class="gate-foot"><i></i>100% local · nenhum dado sai do navegador</span>
+</div>
+<script>
+(function(){
+  var GATE_HASH = "911db3994388a29fb3d44c618a70cc788ef4739d0c340f34850319ebac5062c7";
+  var SESSION_KEY = "refinAuthed";
+
+  function sha256Hex(text){
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(b){ return b.toString(16).padStart(2,"0"); }).join("");
+    });
+  }
+
+  function unlock(){
+    var gate = document.getElementById("authGate");
+    if(gate) gate.style.display = "none";
+    document.documentElement.style.overflow = "";
+  }
+
+  if(sessionStorage.getItem(SESSION_KEY) === "1"){
+    unlock();
+    return;
+  }
+
+  document.documentElement.style.overflow = "hidden";
+
+  var input = document.getElementById("gatePassword");
+  var err = document.getElementById("gateErr");
+  var toggle = document.getElementById("gateToggle");
+
+  var EYE_OPEN = '<path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3"/>';
+  var EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c7 0 10.5 7 10.5 7a13.5 13.5 0 0 1-3.2 4.1M6.6 6.6C3.5 8.5 1.5 12 1.5 12S5 19 12 19a10.6 10.6 0 0 0 4.2-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+
+  toggle.addEventListener("click", function(){
+    var showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    toggle.setAttribute("aria-pressed", String(!showing));
+    toggle.setAttribute("aria-label", showing ? "Mostrar senha" : "Ocultar senha");
+    toggle.querySelector("svg").innerHTML = showing ? EYE_OPEN : EYE_OFF;
+    input.focus();
+  });
+
+  document.getElementById("gateForm").addEventListener("submit", function(e){
+    e.preventDefault();
+
+    sha256Hex(input.value).then(function(hash){
+      if(hash === GATE_HASH){
+        sessionStorage.setItem(SESSION_KEY, "1");
+        unlock();
+      }else{
+        input.classList.add("invalid");
+        err.textContent = "Senha incorreta.";
+        err.classList.add("show");
+        input.value = "";
+        input.focus();
+      }
+    });
+  });
+
+  input.addEventListener("input", function(){
+    input.classList.remove("invalid");
+    err.classList.remove("show");
+  });
+})();
+</script>
+
+<header class="hd">
+  <div class="container hd-in">
+    <span class="hd-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-8 4 5 3-4 6 9"/></svg>
+    </span>
+    <div class="hd-brand">
+      <span class="hd-title">Refinanciamento<span class="hd-badge">FIDC</span></span>
+      <span class="hd-sub">Relatório de viabilidade, ágio e taxa de recompra por CCB</span>
+    </div>
+    <span class="hd-meta">
+      <span class="hd-conf">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z"/></svg>
+        Confidencial
+      </span>
+      <span class="hd-local"><i></i>100% local · nenhum dado sai do navegador</span>
+    </span>
+  </div>
+</header>
+
+<div class="shell container">
+<aside class="side">
+
+  <section>
+    <div class="side-head">
+      <span class="s-n">01</span><h2>Modalidade</h2>
+    </div>
+    <div class="modes" id="modes" role="radiogroup" aria-label="Modalidade de refinanciamento"></div>
+  </section>
+
+  <section>
+    <div class="side-head">
+      <span class="s-n">02</span><h2>Parâmetros</h2>
+    </div>
+    <div class="card params">
+      <div id="paramsBox" class="params-grid"></div>
+      <div id="paramsEmpty" class="params-empty">Selecione uma modalidade para configurar os parâmetros.</div>
+      <div class="params-foot" id="paramsFoot" style="display:none">
+        <button class="linkbtn" id="btnDefaults" type="button">Restaurar padrão</button>
+        <span id="fixedNote"></span>
+      </div>
+    </div>
+  </section>
+
+  <details class="trust-card">
+    <summary>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><circle cx="12" cy="8.2" r=".6" fill="currentColor" stroke="none"/></svg>
+      Como o cálculo funciona
+    </summary>
+    <dl class="trust-body">
+      <div>
+        <dt>Valor Presente</dt>
+        <dd>Desconta cada parcela futura pela taxa da operação, mês a mês, até a data de hoje.</dd>
+      </div>
+      <div>
+        <dt>IOF</dt>
+        <dd>Alíquota diária + fixa (0,38%) sobre o valor financiado, como no cálculo padrão de crédito.</dd>
+      </div>
+      <div>
+        <dt>Ágio</dt>
+        <dd>Diferença entre o Valor Presente na taxa Cessão e o valor financiado na nova taxa, líquido do fee do originador.</dd>
+      </div>
+    </dl>
+    <p class="trust-note">Todo o cálculo roda neste navegador — nenhuma CCB, taxa ou valor é enviado para fora.</p>
+  </details>
+
+</aside>
+
+<main class="stage">
+
+  <section class="sec">
+    <div class="s-head">
+      <span class="s-n">03</span><h2>Base Datacob</h2>
+      <span class="hint">Base bruta → Valor Presente + agrupado por CCB, no navegador</span>
+    </div>
+
+    <p class="raw-sub" style="margin-bottom:12px">Arraste a base bruta do Datacob (completa, linha a linha). O navegador roda automaticamente a mesma lógica do <code>Valor_Presente_Datacob.py</code>: detecta separador/encoding, filtra Status = "A", calcula Valor Presente e agrupa por CCB — sem precisar rodar Python nem gerar CSV intermediário.</p>
+
+    <div class="field raw-date">
+      <label for="rawDataInput">Data Input (referência do cálculo)</label>
+      <div class="inwrap">
+        <input id="rawDataInput" type="date">
+      </div>
+    </div>
+
+    <div class="drop" id="dropRaw" tabindex="0" role="button" aria-label="Selecionar base bruta do Datacob">
+      <span class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
+      </span>
+      <div>
+        <div class="big">Importar base bruta do Datacob</div>
+        <div class="sub">Arraste o .csv completo (Data Vencimento, Valor Saldo, Taxa Contrato, CCB, Status) aqui, ou clique para selecionar. Arquivos grandes (300+ MB) são lidos em blocos.</div>
+      </div>
+    </div>
+    <input type="file" id="fileInputRaw" accept=".csv" hidden>
+    <div class="raw-progwrap">
+      <div class="progress" id="rawProg"><div id="rawProgbar"></div></div>
+      <span class="runstatus" id="rawStatus"></span>
+    </div>
+    <div class="raw-progwrap" id="btnSaveRawCsvWrap" style="display:none">
+      <button class="btn btn-ghost" id="btnSaveRawCsv" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+        Baixar agrupado (.csv)
+      </button>
+      <span class="auto-hint">Opcional: guarda uma cópia do agrupado por CCB já calculado.</span>
+    </div>
+
+    <details class="raw-block" id="prontoDetails">
+      <summary>Já tem o agrupado por CCB pronto? Importar direto</summary>
+      <div class="raw-body">
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Selecionar base Datacob">
+          <span class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
+          </span>
+          <div>
+            <div class="big">Importar Relatorio - VP_agrupado_por_ccb</div>
+            <div class="sub">Arraste o .csv já agrupado (gerado aqui ou pelo Valor_Presente_Datacob.py) aqui, ou clique para selecionar.</div>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx" hidden>
+        <div class="auto-row">
+          <button class="btn btn-ghost" id="btnAutoLoad" type="button">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+            Carregar/atualizar automaticamente
+          </button>
+          <span class="auto-hint" id="autoHint">Lê direto de <code>VP - DataCob/Relatorio - VP_agrupado_por_ccb.csv</code> — só funciona abrindo pelo servidor local (veja "iniciar.bat").</span>
+        </div>
+      </div>
+    </details>
+
+    <div class="card filecard" id="filecard">
+      <span class="ficon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+      </span>
+      <span class="fname" id="fname"></span>
+      <span class="fmeta" id="fmeta"></span>
+      <span class="spacer"></span>
+      <button class="rmv" id="btnClear" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        Remover
+      </button>
+    </div>
+    <div class="card filters" id="filtersCard">
+      <div class="filters-grid">
+        <div class="filter-col" data-filter="Convenio">
+          <div class="filter-head">
+            <label>Convênio</label>
+            <div class="filter-actions">
+              <button type="button" class="linkbtn" data-act="all">Todos</button>
+              <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+            </div>
+          </div>
+          <input type="text" class="filter-search" placeholder="Buscar convênio...">
+          <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+        </div>
+        <div class="filter-col" data-filter="Carteira">
+          <div class="filter-head">
+            <label>Carteira</label>
+            <div class="filter-actions">
+              <button type="button" class="linkbtn" data-act="all">Todos</button>
+              <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+            </div>
+          </div>
+          <input type="text" class="filter-search" placeholder="Buscar carteira...">
+          <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+        </div>
+        <div class="filter-col" data-filter="Grupo">
+          <div class="filter-head">
+            <label>Grupo</label>
+            <div class="filter-actions">
+              <button type="button" class="linkbtn" data-act="all">Todos</button>
+              <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+            </div>
+          </div>
+          <input type="text" class="filter-search" placeholder="Buscar grupo...">
+          <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+        </div>
+      </div>
+      <div class="filters-foot" id="filterCount"></div>
+    </div>
+    <div class="alert err" id="alertErr" role="alert"></div>
+    <div class="alert warn" id="alertWarn" role="status"></div>
+  </section>
+
+  <section class="sec">
+    <div class="s-head">
+      <span class="s-n">04</span><h2>Processar</h2>
+    </div>
+    <div class="card runbar">
+      <button class="btn btn-primary" id="btnRun" type="button" disabled>
+        <svg class="ic" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Gerar resultado
+      </button>
+      <div class="runinfo" id="runinfo">Selecione a modalidade e importe o arquivo.</div>
+      <div class="progress" id="prog"><div id="progbar"></div></div>
+      <span class="runstatus" id="runstatus"></span>
+    </div>
+  </section>
+
+  <section class="sec" id="results">
+    <div class="s-head">
+      <span class="s-n">05</span><h2 id="resTitle">Resultado</h2>
+    </div>
+    <div class="gen-time" id="genTime"></div>
+    <div class="summary-card">
+      <div class="exec-summary" id="execSummary"></div>
+      <div class="paramsum" id="paramsum"></div>
+    </div>
+    <div class="card filters-card">
+      <div class="filters-card-title">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+        Filtros do dashboard
+      </div>
+      <div class="dash-filters">
+        <div class="filter-group" id="taxaRangeCard" style="display:none">
+          <div class="tr-head">
+            <label>Taxa encontrada</label>
+            <span class="tr-info" id="taxaRangeInfo"></span>
+          </div>
+          <div class="tr-controls">
+            <div class="tr-field">
+              <span>Mín</span>
+              <input type="number" id="taxaRangeMin" step="0.01">
+              <span class="tr-unit">% a.m.</span>
+            </div>
+            <div class="tr-field">
+              <span>Máx</span>
+              <input type="number" id="taxaRangeMax" step="0.01">
+              <span class="tr-unit">% a.m.</span>
+            </div>
+            <button class="linkbtn" id="btnTaxaRangeReset" type="button">Limpar filtro</button>
+          </div>
+        </div>
+        <div class="filter-group" id="concCard" style="display:none">
+          <div class="tr-head">
+            <label>% de conclusão</label>
+            <span class="tr-info" id="concInfo"></span>
+          </div>
+          <div class="tr-controls">
+            <div class="tr-field">
+              <span>Ordenar por</span>
+              <select id="concModo">
+                <option value="troco">Valor do troco</option>
+                <option value="qtd">Quantidade de contratos</option>
+              </select>
+            </div>
+            <div class="tr-field">
+              <input type="number" id="concPercentual" min="0" max="100" step="1" value="100">
+              <span class="tr-unit">%</span>
+            </div>
+            <button class="linkbtn" id="btnConcReset" type="button">Limpar filtro</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section-label">Volume de CCBs</div>
+    <div class="kpis">
+      <div class="kpi">
+        <div class="k-top"><span class="k-lab">CCBs analisados</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></span></div>
+        <div class="k-val" id="kTotal">-</div>
+      </div>
+      <div class="kpi good">
+        <div class="k-top"><span class="k-lab">Viáveis</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/></svg></span></div>
+        <div class="k-val" id="kViavel">-</div>
+      </div>
+      <div class="kpi bad">
+        <div class="k-top"><span class="k-lab">Não viáveis</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></span></div>
+        <div class="k-val" id="kInviavel">-</div>
+      </div>
+      <div class="kpi hero">
+        <div class="k-top"><span class="k-lab">Viabilidade</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></span></div>
+        <div class="k-val" id="kPct">-</div>
+      </div>
+    </div>
+    <div class="section-label">Resultado financeiro</div>
+    <div class="kpis-hero">
+      <div class="kpi hero good">
+        <div class="k-top"><span class="k-lab">Ágio Total</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7"/></svg></span></div>
+        <div class="k-val money" id="kAgioTotal">-</div>
+      </div>
+      <div class="kpi hero">
+        <div class="k-top"><span class="k-lab">Valor Aquisição</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M12 4v16"/></svg></span></div>
+        <div class="k-val money" id="kSomaCombo">-</div>
+      </div>
+    </div>
+    <div class="kpis-money">
+      <div class="kpi">
+        <div class="k-top"><span class="k-lab">VP Cliente</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span></div>
+        <div class="k-val money" id="kVpCliente">-</div>
+      </div>
+      <div class="kpi">
+        <div class="k-top"><span class="k-lab">Troco líquido total</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 6V5a2 2 0 0 1 2-2h9"/></svg></span></div>
+        <div class="k-val money" id="kTrocoTotal">-</div>
+      </div>
+      <div class="kpi">
+        <div class="k-top"><span class="k-lab">IOF Total</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v4H4z"/><path d="M9 4v16"/><path d="M4 20h16"/></svg></span></div>
+        <div class="k-val money" id="kIofTotal">-</div>
+      </div>
+      <div class="kpi">
+        <div class="k-top"><span class="k-lab">Fee Total (1%)</span><span class="k-icon"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M5 19 19 5"/></svg></span></div>
+        <div class="k-val money" id="kFeeTotal">-</div>
+      </div>
+    </div>
+    <div class="section-label">Análise</div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="c-title">Viabilidade</div>
+        <div class="donut-wrap" id="donutBox"></div>
+        <div class="donut-legend">
+          <span><i style="background:var(--good)"></i>Viável</span>
+          <span><i style="background:var(--bad-soft);border:1px solid var(--bad)"></i>Não viável</span>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="c-title">Distribuição por faixa de troco (viáveis)</div>
+        <div id="trocoBars"></div>
+      </div>
+    </div>
+    <div class="section-label">Detalhe por CCB</div>
+    <div class="card tablewrap"><table class="res" id="resTable"></table></div>
+    <div class="truncnote" id="truncnote"></div>
+    <div class="res-actions">
+      <button class="btn btn-primary" id="btnDownload" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+        Baixar resultado completo (.xlsx)
+      </button>
+      <button class="btn btn-ghost" id="btnDownloadFiltered" type="button" style="display:none">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+        Baixar dashboard filtrado (.xlsx)
+      </button>
+      <span class="runinfo" id="outname"></span>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<footer class="ft">
+  <div class="container ft-in">
+    <span><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/></svg>Motor financeiro com VP, IOF, ágio, buscas binárias e taxa de recompra</span>
+    <span><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>Exportação com aba Resultado e aba Resumo por faixa de troco</span>
+    <span id="ftTimestamp"></span>
+  </div>
+</footer>
+<script>
+"use strict";
+
+/* =====================================================================
+   NÚCLEO FINANCEIRO
+   ===================================================================== */
+
+function buildDias(nParcelasTotais, diaPagamento){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const dias = [0];
+  let y = today.getFullYear(), m = today.getMonth();
+
+  for(let i=1;i<nParcelasTotais;i++){
+    m += 1;
+    if(m > 11){ m = 0; y += 1; }
+    const d = new Date(y, m, diaPagamento);
+    d.setHours(0,0,0,0);
+    dias.push(Math.round((d - today) / 86400000));
+  }
+
+  return dias;
+}
+
+function calcular(tx, pmt, dias, prazo, carencia, txFidc, iofAnual, vpCliente, vpFundo){
+  let vpFidc = 0, vpFin = 0;
+
+  for(let i=0;i<pmt.length;i++){
+    vpFidc += pmt[i] / Math.pow(1 + txFidc, dias[i]/30);
+    vpFin  += pmt[i] / Math.pow(1 + tx,     dias[i]/30);
+  }
+
+  const principal = vpFin / prazo;
+  const iofFixo = vpFin * 0.0038;
+
+  let iofParc = 0;
+  for(let i=carencia+1;i<pmt.length;i++){
+    iofParc += (dias[i] > 365)
+      ? principal * iofAnual
+      : dias[i] * (iofAnual/365) * principal;
+  }
+
+  const iofTotal = iofParc + iofFixo;
+  const valorLiberado = vpFin - iofTotal;
+  const valorLiberadoFinal = valorLiberado - vpCliente;
+  const feeBmp1 = valorLiberado * 0.01;
+  const agioOriginador = vpFidc - vpFin - feeBmp1;
+  const vpDif = vpFidc - vpFundo;
+  const agioDesc = agioOriginador - (vpFundo - vpCliente);
+  const valorFidcAjustado = vpFin + feeBmp1 + agioDesc;
+
+  return {
+    taxa: tx,
+    vp_fidc: vpFidc,
+    vp_financiado: vpFin,
+    iof_total: iofTotal,
+    fee: feeBmp1,
+    valor_liberado: valorLiberado,
+    valor_liberado_final: valorLiberadoFinal,
+    agio_originador: agioOriginador,
+    agio_desc: agioDesc,
+    vp_dif: vpDif,
+    valor_fidc_ajustado: valorFidcAjustado
+  };
+}
+
+/* =====================================================================
+   MOTORES
+   ===================================================================== */
+
+function motorPrazoFixo(row, ctx){
+  const pmt = ctx.pmtOf(row.Valor_PMT);
+  const r = calcular(
+    ctx.txOperacao, pmt, ctx.dias, ctx.prazo, ctx.carencia,
+    ctx.txFidc, ctx.iofAnual, row.Valor_Presente_Cliente, row.Valor_Presente_Fundo
+  );
+
+  const viavel = r.valor_liberado_final > 30 && r.agio_desc > 0 && r.valor_liberado_final >= r.iof_total;
+
+  return {
+    ...r,
+    taxa_usado: ctx.txOperacao,
+    pmt_usado: row.Valor_PMT,
+    decisao: viavel ? "Viável" : "Não viável",
+    full: true
+  };
+}
+
+/**
+ * Encontra a maior taxa viável dentro de [0.0001, hiTeto].
+ * O ágio é crescente em tx e o troco é decrescente em tx, então a faixa viável
+ * (quando existe) é um intervalo interior [t2, t1] - não basta uma única bisseção
+ * assumindo monotonicidade simples. Por isso localizamos as duas fronteiras
+ * separadamente e usamos a mais alta (t1), que é a que exige o menor corte de taxa.
+ */
+function buscarMaiorTaxaViavel(calcEm, hiTeto, trocoOk){
+  let loA = 0.0001, hiA = hiTeto;
+  for(let k=0;k<60;k++){
+    const mid = (loA+hiA)/2;
+    if(calcEm(mid).agio_desc > 0) hiA = mid; else loA = mid;
+  }
+  const t2 = hiA;
+
+  let loB = 0.0001, hiB = hiTeto;
+  for(let k=0;k<60;k++){
+    const mid = (loB+hiB)/2;
+    if(trocoOk(calcEm(mid))) loB = mid; else hiB = mid;
+  }
+  const t1 = loB;
+
+  if(t2 > t1) return null;
+
+  const r = calcEm(t1);
+  return (trocoOk(r) && r.agio_desc > 0) ? { r, tx: t1 } : null;
+}
+
+function motorBuscaTaxa300(row, ctx){
+  const pmt = ctx.pmtOf(row.Valor_PMT);
+  const T = ctx.trocoMin;
+  const args = [pmt, ctx.dias, ctx.prazo, ctx.carencia, ctx.txFidc, ctx.iofAnual, row.Valor_Presente_Cliente, row.Valor_Presente_Fundo];
+  const calcEm = tx => calcular(tx, ...args);
+  const trocoOk = r => r.valor_liberado_final >= T && r.valor_liberado_final >= r.iof_total;
+
+  const base = calcEm(ctx.txBase);
+
+  if(trocoOk(base) && base.agio_desc > 0){
+    return { ...base, taxa_usado: ctx.txBase, pmt_usado: row.Valor_PMT, decisao: "Viável", full: true };
+  }
+
+  const achado = buscarMaiorTaxaViavel(calcEm, ctx.txBase, trocoOk);
+  if(achado) return { ...achado.r, taxa_usado: achado.tx, pmt_usado: row.Valor_PMT, decisao: "Viável", full: true };
+  return { taxa_usado: null, pmt_usado: row.Valor_PMT, decisao: "Não viável", full: false };
+}
+
+function motorBuscaTaxa(row, ctx){
+  const pmt = ctx.pmtOf(row.Valor_PMT);
+  const args = [pmt, ctx.dias, ctx.prazo, ctx.carencia, ctx.txFidc, ctx.iofAnual, row.Valor_Presente_Cliente, row.Valor_Presente_Fundo];
+  const calcEm = tx => calcular(tx, ...args);
+  const trocoOk = r => r.valor_liberado_final > 30 && r.valor_liberado_final >= r.iof_total;
+
+  const base = calcEm(ctx.txBase);
+
+  if(trocoOk(base) && base.agio_desc > 0){
+    return { ...base, taxa_usado: ctx.txBase, pmt_usado: row.Valor_PMT, decisao: "Viável", full: true };
+  }
+
+  const achado = buscarMaiorTaxaViavel(calcEm, ctx.txBase, trocoOk);
+  if(achado) return { ...achado.r, taxa_usado: achado.tx, pmt_usado: row.Valor_PMT, decisao: "Viável", full: true };
+  return { taxa_usado: null, pmt_usado: row.Valor_PMT, decisao: "Não viável", full: false };
+}
+
+function motorBuscaPmt(row, ctx){
+  const calcEm = v => calcular(
+    ctx.txOperacao, ctx.pmtOf(v), ctx.dias, ctx.prazo, ctx.carencia,
+    ctx.txFidc, ctx.iofAnual, row.Valor_Presente_Cliente, row.Valor_Presente_Fundo
+  );
+  const viavelR = r => r.valor_liberado_final > 30 && r.agio_desc > 0 && r.valor_liberado_final >= r.iof_total;
+
+  const base = calcEm(row.Valor_PMT);
+
+  if(viavelR(base)){
+    return { ...base, taxa_usado: ctx.txOperacao, pmt_usado: row.Valor_PMT, decisao: "Viável", full: true };
+  }
+
+  let lo = 0.01, hi = 5000, melhor = null;
+
+  for(let k=0;k<35;k++){
+    const v = (lo+hi)/2;
+    const r = calcEm(v);
+
+    if(viavelR(r)){
+      hi = v;
+      melhor = { ...r, pmt_minimo: v };
+    }else{
+      lo = v;
+    }
+  }
+
+  if(melhor) return { ...melhor, taxa_usado: ctx.txOperacao, pmt_usado: melhor.pmt_minimo, decisao: "Viável", full: true };
+  return { taxa_usado: ctx.txOperacao, pmt_usado: null, decisao: "Não viável", full: false };
+}
+
+/* =====================================================================
+   MODALIDADES E PARÂMETROS
+   ===================================================================== */
+
+const FIELDS = {
+  prazo:    { label:"Prazo",            unit:"parcelas", min:1,    max:600, step:1,    sliderMax:180, toEngine:v=>Math.trunc(v) },
+  txFidc:   { label:"Taxa Cessão",       unit:"% a.m.",   min:0.01, max:30,  step:0.01, sliderMax:15,  toEngine:v=>v/100 },
+  txOper:   { label:"Taxa da operação", unit:"% a.m.",   min:0.01, max:30,  step:0.01, sliderMax:15,  toEngine:v=>v/100 },
+  txBase:   { label:"Taxa base",        unit:"% a.m.",   min:0.01, max:30,  step:0.01, sliderMax:15,  toEngine:v=>v/100 },
+  trocoMin: { label:"Troco mínimo",     unit:"R$",       min:0,    max:1e9, step:0.01, sliderMax:3000, toEngine:v=>v }
+};
+
+const MODES = {
+  prazofixo: {
+    nome: "Viabilidade · Prazo fixo",
+    desc: "Testa cada CCB com prazo, taxa da operação e taxa Cessão definidos aqui.",
+    crit: "viável se <b>troco > 30</b> e <b>ágio > 0</b> | prazo e taxa definidos nos parâmetros",
+    icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".5" fill="currentColor"/>',
+    params: { prazo: 36, txOper: 4.00, txFidc: 2.40 },
+    motor: motorPrazoFixo
+  },
+  buscataxa300: {
+    nome: "Buscar taxa · Troco mínimo",
+    desc: "Testa a taxa base em todas as CCBs. Só busca uma taxa menor para as que ficarem inviáveis, até garantir o troco mínimo.",
+    crit: "alvo: <b>troco >= mínimo</b> e <b>ágio > 0</b> | busca somente se a taxa base for inviável",
+    icon: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.4-4.4"/><path d="M10.5 8v5M8 10.5h5"/>',
+    params: { prazo: 96, txBase: 4.00, txFidc: 2.40, trocoMin: 300 },
+    motor: motorBuscaTaxa300
+  },
+  buscataxa: {
+    nome: "Buscar taxa",
+    desc: "Testa a taxa base em todas as CCBs. Só busca uma taxa menor para as que ficarem inviáveis.",
+    crit: "viável se <b>troco > 30</b>, <b>ágio > 0</b> e <b>troco >= IOF</b> | busca somente se a taxa base for inviável",
+    icon: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.4-4.4"/>',
+    params: { prazo: 96, txBase: 4.00, txFidc: 2.40 },
+    motor: motorBuscaTaxa
+  },
+  buscapmt: {
+    nome: "Parcela mínima viável",
+    desc: "Testa a parcela original de cada CCB. Só busca a menor parcela nova para as que ficarem inviáveis.",
+    crit: "viável se <b>troco > 30</b>, <b>ágio > 0</b> e <b>troco >= IOF</b> | busca somente se a parcela original for inviável",
+    icon: '<line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="14" x2="20" y2="14"/><circle cx="16" cy="14" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="21" x2="20" y2="21"/><circle cx="12" cy="21" r="2" fill="currentColor" stroke="none"/>',
+    params: { prazo: 96, txOper: 4.00, txFidc: 2.40 },
+    motor: motorBuscaPmt
+  }
+};
+
+const RESULT_COLS = [
+  "CCB","Prazo","Taxa_Refin","Taxa_Base","Valor_PMT","Valor_PMT_Original","Valor_Presente_Fundo","Valor_Presente_Cliente",
+  "IOF","Fee","Valor_Financiado","Troco","Agio_Originador","Valor_FIDC_Nova_Operacao",
+  "Decisao"
+];
+
+// Colunas de saída específicas da modalidade "Viabilidade · Prazo fixo",
+// espelhando o colunas_saida de refin_prazofixo.py (sem Taxa_Base/Valor_PMT_Original/Fee),
+// mas com Decisao mantida (aparece em todas as modalidades).
+const PRAZOFIXO_COLS = [
+  "CCB","Prazo","Taxa_Refin","Valor_PMT","Valor_Presente_Fundo","Valor_Presente_Cliente",
+  "IOF","Valor_Financiado","Troco","Agio_Originador","Valor_FIDC_Nova_Operacao","Decisao"
+];
+
+const PRAZOFIXO_LABELS = {
+  Taxa_Refin: "Taxa Refin",
+  Valor_PMT: "Valor PMT",
+  Valor_Presente_Fundo: "Valor Presente Fundo",
+  Valor_Presente_Cliente: "Valor Presente Cliente",
+  Valor_Financiado: "Valor Financiado",
+  Troco: "Troco Cliente",
+  Agio_Originador: "Agio Nova Operação",
+  Valor_FIDC_Nova_Operacao: "Valor FIDC Nova Operação"
+};
+
+// "Parcela mínima viável" nunca busca uma nova taxa (só a parcela muda),
+// então Taxa_Base sempre repetia o mesmo valor de Taxa_Refin — coluna redundante, removida.
+const BUSCAPMT_COLS = RESULT_COLS.filter(c => c !== "Taxa_Base");
+
+function resultColsFor(mode){
+  if(mode === "prazofixo") return PRAZOFIXO_COLS;
+  if(mode === "buscapmt") return BUSCAPMT_COLS;
+  return RESULT_COLS;
+}
+
+function colLabelFor(mode, col){
+  if(mode === "prazofixo" && PRAZOFIXO_LABELS[col]) return PRAZOFIXO_LABELS[col];
+  return col.replace(/_/g," ");
+}
+
+const CARENCIA = 1;
+const DIA_PAG = 5;
+const IOF_ANUAL = 0.03;
+
+/* =====================================================================
+   INTERFACE
+   ===================================================================== */
+
+const $ = id => document.getElementById(id);
+
+let selMode = null;
+let baseData = null;
+let filterState = {};
+let fileName = "";
+let resultRows = null;
+let resultRowsAll = null;
+let lastRunTimestamp = null;
+let paramValues = {};
+
+(function renderModes(){
+  const box = $("modes");
+
+  for(const [key, m] of Object.entries(MODES)){
+    const el = document.createElement("div");
+    el.className = "mode";
+    el.tabIndex = 0;
+    el.setAttribute("role","radio");
+    el.setAttribute("aria-checked","false");
+    el.dataset.key = key;
+
+    el.innerHTML = `
+      <span class="chk" aria-hidden="true"></span>
+      <div class="mode-top">
+        <span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg></span>
+      </div>
+      <h3>${m.nome}</h3>
+      <div class="desc">${m.desc}</div>
+      <div class="crit">${m.crit}</div>`;
+
+    const pick = () => selectMode(key);
+    el.addEventListener("click", pick);
+    el.addEventListener("keydown", e => {
+      if(e.key==="Enter" || e.key===" "){
+        e.preventDefault();
+        pick();
+      }
+    });
+
+    box.appendChild(el);
+  }
+})();
+
+function selectMode(key){
+  selMode = key;
+
+  document.querySelectorAll(".mode").forEach(el=>{
+    const on = el.dataset.key === key;
+    el.classList.toggle("sel", on);
+    el.setAttribute("aria-checked", on ? "true" : "false");
+  });
+
+  renderParams();
+  refreshRunState();
+}
+
+function renderParams(){
+  const cfg = MODES[selMode];
+  const box = $("paramsBox");
+
+  box.innerHTML = "";
+  paramValues = { ...cfg.params };
+
+  $("paramsEmpty").style.display = "none";
+  $("paramsFoot").style.display = "flex";
+
+  $("fixedNote").textContent =
+    selMode==="buscataxa300" || selMode==="buscataxa" ? "Se a taxa base já for viável, ela é usada direto. Só busca uma taxa menor (até 0,01%) para as CCBs inviáveis."
+    : selMode==="buscapmt" ? "Se a parcela original já for viável, ela é usada direto. Só busca uma nova parcela (entre R$ 0,01 e R$ 5.000) para as CCBs inviáveis."
+    : "Prazo, taxa da operação e taxa Cessão valem para toda a carteira.";
+
+  for(const [pkey, def] of Object.entries(cfg.params)){
+    const f = FIELDS[pkey];
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const sliderMax = Math.max(f.sliderMax ?? f.max, def);
+
+    wrap.innerHTML = `
+      <label for="p_${pkey}">${f.label}</label>
+      <div class="inwrap">
+        <input id="p_${pkey}" type="number" inputmode="decimal"
+               min="${f.min}" max="${f.max}" step="${f.step}" value="${def}">
+        <span class="unit">${f.unit}</span>
+      </div>
+      <input id="s_${pkey}" class="slider" type="range" aria-label="${f.label} (ajuste rápido)"
+             min="${f.min}" max="${sliderMax}" step="${f.step}" value="${def}">`;
+
+    const inp = wrap.querySelector("input[type=number]");
+    const sld = wrap.querySelector("input[type=range]");
+
+    inp.addEventListener("input", ()=>{
+      const v = parseFloat(inp.value);
+      const ok = isFinite(v) && v >= f.min && v <= f.max;
+
+      inp.classList.toggle("invalid", !ok);
+      paramValues[pkey] = ok ? v : NaN;
+
+      if(ok){
+        if(v > parseFloat(sld.max)) sld.max = v;
+        sld.value = v;
+      }
+
+      refreshRunState();
+    });
+
+    sld.addEventListener("input", ()=>{
+      inp.value = sld.value;
+      inp.dispatchEvent(new Event("input"));
+    });
+
+    box.appendChild(wrap);
+  }
+}
+
+$("btnDefaults").addEventListener("click", ()=>{
+  if(selMode) renderParams();
+  refreshRunState();
+});
+
+function paramsOk(){
+  if(!selMode) return false;
+  return Object.values(paramValues).every(v => isFinite(v));
+}
+/* =====================================================================
+   UPLOAD
+   ===================================================================== */
+
+const drop = $("drop");
+const fileInput = $("fileInput");
+
+drop.addEventListener("click", ()=>fileInput.click());
+
+drop.addEventListener("keydown", e=>{
+  if(e.key==="Enter" || e.key===" "){
+    e.preventDefault();
+    fileInput.click();
+  }
+});
+
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev, e=>{
+  e.preventDefault();
+  drop.classList.add("over");
+}));
+
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{
+  e.preventDefault();
+  drop.classList.remove("over");
+}));
+
+drop.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+
+fileInput.addEventListener("change", e=>{
+  const f = e.target.files[0];
+  if(f) loadFile(f);
+  fileInput.value = "";
+});
+
+$("btnClear").addEventListener("click", ()=>{
+  baseData = null;
+  filterState = {};
+  fileName = "";
+  $("filecard").classList.remove("show");
+  $("filtersCard").classList.remove("show");
+  hideAlerts();
+  hideResults();
+  refreshRunState();
+});
+
+function parseNumBR(v){
+  if(typeof v === "number") return v;
+  if(v == null) return NaN;
+
+  let s = String(v).trim();
+  if(!s) return NaN;
+
+  if(s.includes(",")) s = s.replace(/\./g,"").replace(",", ".");
+
+  return parseFloat(s);
+}
+
+function parseCsv(text){
+  if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r\n|\n|\r/).filter(l => l.length);
+  if(!lines.length) return [];
+
+  const headers = lines[0].split(";").map(h => h.trim());
+  const rows = [];
+
+  for(let i=1;i<lines.length;i++){
+    const cells = lines[i].split(";");
+    const row = {};
+
+    for(let j=0;j<headers.length;j++){
+      let v = cells[j] !== undefined ? cells[j].trim() : "";
+      if(v.length>1 && v.startsWith('"') && v.endsWith('"')) v = v.slice(1,-1);
+      row[headers[j]] = v;
+    }
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function ingestRows(rawRows, sourceName, sourceSizeBytes, horarioLabel){
+  if(!rawRows.length){
+    showErr("O arquivo está vazio.");
+    return false;
+  }
+
+  const norm = rawRows.map(r=>{
+    const o = {};
+    for(const [k,v] of Object.entries(r)){
+      o[String(k).trim().replace(/\s+/g,"_")] = v;
+    }
+    return o;
+  });
+
+  const required = ["CCB","Convenio","Carteira","Grupo","Valor_Original","Valor_Presente"];
+  const have = new Set(Object.keys(norm[0]));
+  const missing = required.filter(c=>!have.has(c));
+
+  if(missing.length){
+    showErr(`Colunas ausentes na base: ${missing.join(", ")}.\nEsperado: CCB, Convenio, Carteira, Grupo, Valor Original, Valor Presente.`);
+    return false;
+  }
+
+  let nInvalid = 0;
+
+  baseData = norm.reduce((acc, r)=>{
+    const valorOriginal = parseNumBR(r.Valor_Original);
+    const valorPresente = parseNumBR(r.Valor_Presente);
+
+    if(r.CCB == null || r.CCB === "" || !isFinite(valorOriginal) || !isFinite(valorPresente)){
+      nInvalid++;
+      return acc;
+    }
+
+    acc.push({
+      CCB: String(r.CCB),
+      Convenio: String(r.Convenio ?? ""),
+      Carteira: String(r.Carteira ?? ""),
+      Grupo: String(r.Grupo ?? ""),
+      Valor_Original: valorOriginal,
+      Valor_Presente: valorPresente
+    });
+
+    return acc;
+  }, []);
+
+  if(!baseData.length){
+    showErr("Nenhuma linha válida encontrada na base.");
+    baseData = null;
+    return false;
+  }
+
+  fileName = sourceName;
+  $("fname").textContent = sourceName;
+  $("fmeta").textContent = `${baseData.length.toLocaleString("pt-BR")} CCBs | ${(sourceSizeBytes/1024/1024).toFixed(2)} MB | atualizado às ${horarioLabel}`;
+  $("filecard").classList.add("show");
+
+  if(nInvalid){
+    showWarn(`${nInvalid} linha${nInvalid>1?"s":""} da base com dados inválidos foram ignoradas na importação.`);
+  }
+
+  buildFilters();
+  $("filtersCard").classList.add("show");
+  refreshRunState();
+  return true;
+}
+
+function loadFile(f){
+  hideAlerts();
+  hideResults();
+
+  const isCsv = /\.csv$/i.test(f.name);
+  const isXlsx = /\.xlsx$/i.test(f.name);
+
+  if(!isCsv && !isXlsx){
+    showErr("O arquivo precisa ter extensão .csv ou .xlsx.");
+    return;
+  }
+
+  const rd = new FileReader();
+
+  rd.onload = e => {
+    try{
+      const rawRows = isCsv
+        ? parseCsv(e.target.result)
+        : (() => {
+            const wb = XLSX.read(e.target.result, { type:"array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            return XLSX.utils.sheet_to_json(ws, { defval:null, raw:true });
+          })();
+
+      const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      ingestRows(rawRows, f.name, f.size, horario);
+
+    }catch(err){
+      showErr("Não foi possível ler o arquivo.\n" + err.message);
+    }
+  };
+
+  if(isCsv) rd.readAsText(f, "utf-8");
+  else rd.readAsArrayBuffer(f);
+}
+
+const AUTO_CSV_PATH = "VP - DataCob/Relatorio - VP_agrupado_por_ccb.csv";
+
+async function autoLoadCsv(silent){
+  const btn = $("btnAutoLoad");
+  const hint = $("autoHint");
+  const hintOriginal = hint ? hint.textContent : "";
+
+  if(btn) btn.disabled = true;
+  if(hint) hint.textContent = "Verificando arquivo mais recente...";
+
+  try{
+    const res = await fetch(encodeURI(AUTO_CSV_PATH) + "?t=" + Date.now(), { cache:"no-store" });
+    if(!res.ok) throw new Error(`Arquivo não encontrado (HTTP ${res.status}).`);
+
+    const text = await res.text();
+    const rawRows = parseCsv(text);
+    const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+
+    hideAlerts();
+    hideResults();
+
+    const ok = ingestRows(rawRows, "Relatorio - VP_agrupado_por_ccb.csv", new Blob([text]).size, horario);
+    if(hint) hint.textContent = hintOriginal;
+    return ok;
+
+  }catch(err){
+    if(!silent){
+      showErr("Não foi possível carregar a base automaticamente.\n" + err.message + "\n\nAbra a página pelo servidor local (iniciar.bat) ou importe o arquivo manualmente.");
+    }
+    if(hint) hint.textContent = hintOriginal;
+    return false;
+
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+$("btnAutoLoad").addEventListener("click", ()=>autoLoadCsv(false));
+
+autoLoadCsv(true);
+
+/* =====================================================================
+   BASE BRUTA DO DATACOB -> VALOR PRESENTE + AGRUPADO POR CCB
+   Porta client-side da lógica de Valor_Presente_Datacob.py: detecta
+   separador/encoding, filtra Status = "A", calcula Valor Presente linha a
+   linha e agrupa por CCB. Lê o arquivo em stream (não carrega tudo na
+   memória de uma vez), então funciona com arquivos de centenas de MB.
+   ===================================================================== */
+
+function stripAccentsJS(s){
+  return String(s).normalize("NFKD").replace(/[̀-ͯ]/g,"");
+}
+
+function normalizeColNameJS(s){
+  return stripAccentsJS(s).toLowerCase().trim().replace(/\s+/g," ");
+}
+
+function normalizeTextoValorJS(s){
+  if(s == null) return "";
+  return stripAccentsJS(s).toUpperCase().trim();
+}
+
+function findColumnJS(columns, candidates){
+  const normMap = new Map(columns.map(c => [normalizeColNameJS(c), c]));
+
+  for(const cand of candidates){
+    const cn = normalizeColNameJS(cand);
+    if(normMap.has(cn)) return normMap.get(cn);
+  }
+
+  for(const cand of candidates){
+    const cn = normalizeColNameJS(cand);
+    for(const [norm, original] of normMap){
+      if(norm.includes(cn) || cn.includes(norm)) return original;
+    }
+  }
+
+  return null;
+}
+
+function parseNumeroBRLJS(value){
+  if(value == null) return NaN;
+
+  let s = String(value).trim();
+  if(!s || s.toLowerCase() === "nan") return NaN;
+
+  s = s.replace("R$","").replace(/\s+/g,"");
+  const neg = s.startsWith("-");
+  if(neg) s = s.slice(1);
+
+  s = s.replace(/\./g,"").replace(",", ".");
+
+  const val = parseFloat(s);
+  if(!isFinite(val)) return NaN;
+
+  return neg ? -val : val;
+}
+
+function parseDataBRJS(raw){
+  if(!raw) return null;
+  const s = String(raw).trim();
+
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return Date.UTC(+m[3], +m[2]-1, +m[1]);
+
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return Date.UTC(+m[1], +m[2]-1, +m[3]);
+
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if(m) return Date.UTC(2000 + (+m[3]), +m[2]-1, +m[1]);
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function detectDelimiterJS(headerLine){
+  const candidatos = [";", ",", "\t", "|"];
+  let best = ";", bestCount = -1;
+
+  for(const d of candidatos){
+    const c = headerLine.split(d).length - 1;
+    if(c > bestCount){ bestCount = c; best = d; }
+  }
+
+  return bestCount > 0 ? best : ",";
+}
+
+function splitLineJS(line, delim){
+  return line.split(delim).map(c=>{
+    let v = c.trim();
+    if(v.length>1 && v.startsWith('"') && v.endsWith('"')) v = v.slice(1,-1);
+    return v;
+  });
+}
+
+async function detectEncodingJS(file){
+  const buf = await file.slice(0, 262144).arrayBuffer();
+  try{
+    new TextDecoder("utf-8", { fatal:true }).decode(buf);
+    return "utf-8";
+  }catch(e){
+    return "windows-1252";
+  }
+}
+
+async function processRawDatacobFile(file, dataInputMs, onProgress){
+  const encoding = await detectEncodingJS(file);
+
+  const headerBuf = await file.slice(0, 65536).arrayBuffer();
+  const headerSample = new TextDecoder(encoding).decode(headerBuf).replace(/^﻿/, "");
+  const firstLine = headerSample.split(/\r\n|\n|\r/)[0] || "";
+  const delim = detectDelimiterJS(firstLine);
+
+  const reader = file.stream().getReader();
+  const decoder = new TextDecoder(encoding);
+
+  let leftover = "";
+  let isFirstChunk = true;
+  let headerCols = null;
+  let idxOf = null;
+  const idx = {};
+  let colunasExtras = {};
+
+  const gruposVp = new Map();
+  const gruposSaldo = new Map();
+  const gruposQtd = new Map();
+  const gruposInfo = new Map();
+
+  let totalLinhas = 0, foraStatus = 0, dataInvalida = 0, bytesRead = 0;
+  const totalBytes = file.size || 1;
+
+  function processLine(line){
+    if(!line) return;
+
+    if(headerCols === null){
+      headerCols = splitLineJS(line, delim);
+
+      idx.venc = findColumnJS(headerCols, ["Data Vencimento","DataVencimento","Vencimento"]);
+      idx.saldo = findColumnJS(headerCols, ["Valor Saldo","ValorSaldo","Saldo"]);
+      idx.taxa = findColumnJS(headerCols, ["Taxa Contrato","TaxaContrato","Taxa"]);
+      idx.ccb = findColumnJS(headerCols, ["CCB"]);
+      idx.status = findColumnJS(headerCols, ["Status"]);
+
+      const faltando = Object.entries({
+        "Data Vencimento": idx.venc, "Valor Saldo": idx.saldo,
+        "Taxa Contrato": idx.taxa, "CCB": idx.ccb, "Status": idx.status
+      }).filter(([,v])=>!v).map(([k])=>k);
+
+      if(faltando.length){
+        throw new Error(`Não encontrei as colunas obrigatórias: ${faltando.join(", ")}.\nColunas lidas: ${headerCols.join(" | ")}`);
+      }
+
+      colunasExtras = {
+        Convenio: findColumnJS(headerCols, ["Convenio","Convênio"]),
+        Carteira: findColumnJS(headerCols, ["Carteira"]),
+        Grupo: findColumnJS(headerCols, ["Grupo"]),
+        ValorOriginal: findColumnJS(headerCols, ["Valor Original","ValorOriginal"]),
+        TaxaContrato: idx.taxa
+      };
+
+      idxOf = new Map(headerCols.map((c,i)=>[c,i]));
+      return;
+    }
+
+    const cells = splitLineJS(line, delim);
+    const get = colName => colName!=null ? (cells[idxOf.get(colName)] ?? "") : "";
+
+    totalLinhas++;
+
+    if(normalizeTextoValorJS(get(idx.status)) !== "A"){ foraStatus++; return; }
+
+    const vencMs = parseDataBRJS(get(idx.venc));
+    const saldo = parseNumeroBRLJS(get(idx.saldo));
+    const taxa = parseNumeroBRLJS(get(idx.taxa));
+    const ccb = get(idx.ccb);
+
+    if(vencMs === null || !isFinite(saldo) || !isFinite(taxa) || !ccb){
+      dataInvalida++;
+      return;
+    }
+
+    const dias = Math.round((vencMs - dataInputMs) / 86400000);
+    const meses = dias / 30;
+    const vp = dias <= 0 ? saldo : saldo / Math.pow(1 + taxa/100, meses);
+
+    gruposVp.set(ccb, (gruposVp.get(ccb)||0) + vp);
+    gruposSaldo.set(ccb, (gruposSaldo.get(ccb)||0) + saldo);
+    gruposQtd.set(ccb, (gruposQtd.get(ccb)||0) + 1);
+
+    if(!gruposInfo.has(ccb)){
+      gruposInfo.set(ccb, {
+        Convenio: get(colunasExtras.Convenio),
+        Carteira: get(colunasExtras.Carteira),
+        Grupo: get(colunasExtras.Grupo),
+        ValorOriginal: get(colunasExtras.ValorOriginal),
+        TaxaContrato: get(colunasExtras.TaxaContrato)
+      });
+    }
+  }
+
+  while(true){
+    const { value, done } = await reader.read();
+    if(done) break;
+
+    bytesRead += value.byteLength;
+    let text = decoder.decode(value, { stream:true });
+
+    if(isFirstChunk){
+      text = text.replace(/^﻿/, "");
+      isFirstChunk = false;
+    }
+
+    const combined = leftover + text;
+    const lines = combined.split(/\r\n|\n|\r/);
+    leftover = lines.pop();
+
+    for(const line of lines) processLine(line);
+
+    if(onProgress) onProgress(Math.min(99, Math.round(bytesRead/totalBytes*100)));
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  const tail = leftover + decoder.decode();
+  if(tail.trim()) processLine(tail);
+
+  if(onProgress) onProgress(100);
+
+  const rows = [];
+  for(const [ccb, vp] of gruposVp){
+    const info = gruposInfo.get(ccb) || {};
+    rows.push({
+      CCB: ccb,
+      Convenio: info.Convenio || "",
+      Carteira: info.Carteira || "",
+      Grupo: info.Grupo || "",
+      "Valor Original": info.ValorOriginal || "",
+      "Taxa Contrato": info.TaxaContrato || "",
+      "Qtd Linhas": gruposQtd.get(ccb) || 0,
+      "Valor Saldo": Math.round((gruposSaldo.get(ccb)||0) * 100) / 100,
+      "Valor Presente": Math.round(vp * 100) / 100
+    });
+  }
+  rows.sort((a,b)=> String(a.CCB).localeCompare(String(b.CCB), "pt-BR"));
+
+  return { rows, stats: { totalLinhas, foraStatus, dataInvalida, ccbs: rows.length } };
+}
+
+let lastRawGroupedRows = null;
+
+function toBRLNumberString(n){
+  if(typeof n !== "number" || !isFinite(n)) return n ?? "";
+  return n.toFixed(2).replace(".", ",");
+}
+
+function buildAgrupadoCsvText(rows){
+  const cols = ["CCB","Convenio","Carteira","Grupo","Valor Original","Taxa Contrato","Qtd Linhas","Valor Saldo","Valor Presente"];
+  const decimais = new Set(["Valor Saldo","Valor Presente"]);
+
+  const lines = [cols.join(";")];
+  for(const r of rows){
+    lines.push(cols.map(c=>{
+      const v = r[c];
+      if(c === "Qtd Linhas") return String(v ?? 0);
+      return decimais.has(c) ? toBRLNumberString(v) : (v ?? "");
+    }).join(";"));
+  }
+
+  return "﻿" + lines.join("\r\n") + "\r\n";
+}
+
+async function saveAgrupadoCsv(rows){
+  const text = buildAgrupadoCsvText(rows);
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const suggestedName = "Relatorio - VP_agrupado_por_ccb.csv";
+
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    }catch(e){
+      if(e.name === "AbortError") return false;
+      throw e;
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = suggestedName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+$("btnSaveRawCsv").addEventListener("click", async ()=>{
+  if(!lastRawGroupedRows) return;
+
+  try{
+    await saveAgrupadoCsv(lastRawGroupedRows);
+  }catch(e){
+    showErr("Não foi possível salvar o arquivo agrupado.\n" + e.message);
+  }
+});
+
+async function loadRawFile(file){
+  hideAlerts();
+  hideResults();
+  $("btnSaveRawCsvWrap").style.display = "none";
+  lastRawGroupedRows = null;
+
+  if(!/\.csv$/i.test(file.name)){
+    showErr("A base bruta precisa ter extensão .csv.");
+    return;
+  }
+
+  const dataInputStr = $("rawDataInput").value;
+  if(!dataInputStr){
+    showErr("Informe a Data Input (referência do cálculo) antes de importar a base bruta.");
+    return;
+  }
+
+  const [y, m, d] = dataInputStr.split("-").map(Number);
+  const dataInputMs = Date.UTC(y, m-1, d);
+
+  $("rawProg").classList.add("show");
+  $("rawProgbar").style.width = "0%";
+  $("rawStatus").textContent = "Lendo arquivo...";
+
+  try{
+    const { rows, stats } = await processRawDatacobFile(file, dataInputMs, pct=>{
+      $("rawProgbar").style.width = pct + "%";
+      $("rawStatus").textContent = `Processando... ${pct}%`;
+    });
+
+    $("rawStatus").textContent = "Concluído";
+
+    if(!rows.length){
+      showErr("Nenhuma linha com Status = \"A\" e dados válidos foi encontrada na base bruta.");
+      return;
+    }
+
+    const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    const ok = ingestRows(rows, `${file.name} (agrupado automaticamente)`, file.size, horario);
+
+    if(ok){
+      lastRawGroupedRows = rows;
+      $("btnSaveRawCsvWrap").style.display = "flex";
+
+      showWarn(
+        `Base bruta processada no navegador: ${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas, ` +
+        `${stats.foraStatus.toLocaleString("pt-BR")} descartadas por Status diferente de "A", ` +
+        `${stats.dataInvalida.toLocaleString("pt-BR")} descartadas por dados inválidos/incompletos, ` +
+        `${stats.ccbs.toLocaleString("pt-BR")} CCBs agrupados. Já pode rodar a modalidade de viabilidade abaixo.`
+      );
+    }
+
+  }catch(err){
+    $("rawStatus").textContent = "Erro";
+    showErr("Não foi possível processar a base bruta.\n" + err.message);
+
+  }finally{
+    setTimeout(()=>{ $("rawProg").classList.remove("show"); }, 900);
+  }
+}
+
+const dropRaw = $("dropRaw");
+const fileInputRaw = $("fileInputRaw");
+
+$("rawDataInput").value = new Date().toISOString().slice(0,10);
+
+dropRaw.addEventListener("click", ()=>fileInputRaw.click());
+
+dropRaw.addEventListener("keydown", e=>{
+  if(e.key==="Enter" || e.key===" "){
+    e.preventDefault();
+    fileInputRaw.click();
+  }
+});
+
+["dragover","dragenter"].forEach(ev=>dropRaw.addEventListener(ev, e=>{
+  e.preventDefault();
+  dropRaw.classList.add("over");
+}));
+
+["dragleave","drop"].forEach(ev=>dropRaw.addEventListener(ev, e=>{
+  e.preventDefault();
+  dropRaw.classList.remove("over");
+}));
+
+dropRaw.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) loadRawFile(f);
+});
+
+fileInputRaw.addEventListener("change", e=>{
+  const f = e.target.files[0];
+  if(f) loadRawFile(f);
+  fileInputRaw.value = "";
+});
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+function buildFilters(){
+  const dims = ["Convenio","Carteira","Grupo"];
+
+  for(const dim of dims){
+    const values = [...new Set(baseData.map(r => r[dim]))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    filterState[dim] = new Set(values);
+
+    const col = document.querySelector(`.filter-col[data-filter="${dim}"]`);
+    const list = col.querySelector(".filter-list");
+    list.innerHTML = values.map(v => `
+      <label class="filter-opt">
+        <input type="checkbox" value="${escapeHtml(v)}" checked>
+        <span>${escapeHtml(v)}</span>
+      </label>`).join("");
+
+    list.onchange = e => {
+      if(e.target.type !== "checkbox") return;
+      filterState[dim] = new Set([...list.querySelectorAll("input:checked")].map(o=>o.value));
+      refreshFilterCount();
+      refreshRunState();
+    };
+
+    col.querySelector('[data-act="all"]').onclick = () => {
+      list.querySelectorAll("input").forEach(o=>o.checked = true);
+      filterState[dim] = new Set(values);
+      refreshFilterCount();
+      refreshRunState();
+    };
+
+    col.querySelector('[data-act="none"]').onclick = () => {
+      list.querySelectorAll("input").forEach(o=>o.checked = false);
+      filterState[dim] = new Set();
+      refreshFilterCount();
+      refreshRunState();
+    };
+
+    const search = col.querySelector(".filter-search");
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+      list.querySelectorAll(".filter-opt").forEach(row=>{
+        row.hidden = !!q && !row.textContent.toLowerCase().includes(q);
+      });
+    };
+  }
+
+  refreshFilterCount();
+}
+
+function getFilteredRows(){
+  if(!baseData) return [];
+
+  return baseData.filter(r =>
+    filterState.Convenio.has(r.Convenio) &&
+    filterState.Carteira.has(r.Carteira) &&
+    filterState.Grupo.has(r.Grupo)
+  );
+}
+
+function refreshFilterCount(){
+  const n = getFilteredRows().length;
+  $("filterCount").textContent = `${n.toLocaleString("pt-BR")} de ${baseData.length.toLocaleString("pt-BR")} CCBs selecionados`;
+}
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+
+function refreshRunState(){
+  const n = baseData ? getFilteredRows().length : 0;
+  const ok = !!(selMode && baseData && n > 0 && paramsOk());
+
+  $("btnRun").disabled = !ok;
+
+  $("runinfo").innerHTML = ok
+    ? `Pronto: <b>${MODES[selMode].nome}</b> | <b>${n.toLocaleString("pt-BR")}</b> CCB${n>1?"s":""} selecionado${n>1?"s":""}.`
+    : !selMode ? "Selecione a modalidade e importe a base."
+    : !baseData ? "Importe a base Datacob (.csv) para continuar."
+    : !paramsOk() ? "Corrija os parâmetros destacados na etapa 02."
+    : "Ajuste os filtros para selecionar ao menos um CCB.";
+}
+
+function showErr(msg){
+  const a = $("alertErr");
+  a.textContent = msg;
+  a.classList.add("show");
+}
+
+function showWarn(msg){
+  const a = $("alertWarn");
+  a.textContent = msg;
+  a.classList.add("show");
+}
+
+function hideAlerts(){
+  $("alertErr").classList.remove("show");
+  $("alertWarn").classList.remove("show");
+}
+
+function hideResults(){
+  $("results").classList.remove("show");
+  resultRows = null;
+  resultRowsAll = null;
+  resultRowsTaxa = null;
+  $("taxaRangeCard").style.display = "none";
+  $("concCard").style.display = "none";
+}
+
+/* =====================================================================
+   PROCESSAMENTO
+   ===================================================================== */
+
+$("btnRun").addEventListener("click", async ()=>{
+  hideAlerts();
+  hideResults();
+
+  const cfg = MODES[selMode];
+  const rows = getFilteredRows();
+
+  if(!rows.length){
+    showErr("Nenhum CCB corresponde aos filtros selecionados.");
+    return;
+  }
+
+  const P = {};
+  for(const [k,v] of Object.entries(paramValues)){
+    P[k] = FIELDS[k].toEngine(v);
+  }
+
+  const btn = $("btnRun");
+  btn.disabled = true;
+
+  $("prog").classList.add("show");
+  $("progbar").style.width = "0%";
+  $("runstatus").textContent = "Preparando...";
+
+  const n = P.prazo + CARENCIA + 1;
+  const dias = buildDias(n, DIA_PAG);
+
+  const ctx = {
+    prazo: P.prazo,
+    carencia: CARENCIA,
+    txFidc: P.txFidc,
+    iofAnual: IOF_ANUAL,
+    dias,
+    txOperacao: P.txOper,
+    txBase: P.txBase,
+    trocoMin: P.trocoMin,
+    pmtOf: v => {
+      const a = new Array(n).fill(0);
+      for(let i=CARENCIA+1;i<n;i++) a[i] = v;
+      return a;
+    }
+  };
+
+  const total = rows.length;
+  const out = [];
+  let nErr = 0;
+
+  for(let i=0;i<total;i++){
+    const base = rows[i];
+    const clean = {
+      CCB: base.CCB,
+      Valor_PMT: base.Valor_Original,
+      Valor_Presente_Cliente: base.Valor_Presente,
+      Valor_Presente_Fundo: base.Valor_Presente
+    };
+
+    let res;
+
+    try{
+      res = cfg.motor(clean, ctx);
+    }catch(e){
+      res = { decisao:"Erro (cálculo)", full:false };
+      nErr++;
+    }
+
+    out.push({ input: clean, res });
+
+    if(i % 200 === 0 || i === total-1){
+      $("progbar").style.width = Math.round(((i+1)/total)*100) + "%";
+      $("runstatus").textContent = `Processando ${i+1}/${total}...`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+
+  resultRows = out.map(({input,res})=>{
+    const f = res.full;
+
+    return {
+      CCB: input.CCB,
+      Prazo: ctx.prazo,
+      Taxa_Refin: res.taxa_usado ?? null,
+      Taxa_Base: ctx.txBase ?? ctx.txOperacao ?? null,
+      Valor_PMT: res.pmt_usado ?? null,
+      Valor_PMT_Original: input.Valor_PMT,
+      Valor_Presente_Fundo: input.Valor_Presente_Fundo,
+      Valor_Presente_Cliente: input.Valor_Presente_Cliente,
+      IOF: f ? res.iof_total : null,
+      Fee: f ? res.fee : null,
+      Valor_Financiado: f ? res.vp_financiado : null,
+      Troco: f ? res.valor_liberado_final : null,
+      Agio_Originador: f ? res.agio_desc : null,
+      Valor_FIDC_Nova_Operacao: f ? res.valor_fidc_ajustado : null,
+      Decisao: res.decisao
+    };
+  });
+
+  resultRowsAll = resultRows;
+  lastRunTimestamp = new Date();
+
+  $("progbar").style.width = "100%";
+  $("runstatus").textContent = "Concluído";
+  btn.disabled = false;
+
+  if(nErr){
+    showWarn(`${nErr} linha${nErr>1?"s":""} com erro de cálculo foram marcadas como "Erro" no resultado.`);
+  }
+
+  setupTaxaRangeFilter(cfg);
+});
+
+/* =====================================================================
+   RESULTADOS
+   ===================================================================== */
+
+const fmtBRL = new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPct = new Intl.NumberFormat("pt-BR",{minimumFractionDigits:4,maximumFractionDigits:4});
+const fmtTaxaPreview = new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function buildDonut(nV, total){
+  const r = 54, c = 2*Math.PI*r;
+  const pct = total ? nV/total : 0;
+  const len = c*pct;
+
+  return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="Percentual de viabilidade">
+    <circle cx="70" cy="70" r="${r}" fill="none" stroke="#3A2530" stroke-width="18"/>
+    <circle cx="70" cy="70" r="${r}" fill="none" stroke="#22C55E" stroke-width="18"
+      stroke-dasharray="${len.toFixed(2)} ${(c-len).toFixed(2)}" stroke-linecap="round" transform="rotate(-90 70 70)"/>
+    <text x="70" y="66" text-anchor="middle" class="donut-pct">${total ? Math.round(pct*100) : 0}%</text>
+    <text x="70" y="86" text-anchor="middle" class="donut-lab">viável</text>
+  </svg>`;
+}
+
+function buildTrocoBars(){
+  const viaveis = resultRows.filter(r => r.Decisao === "Viável");
+  const bucketLabels = TROCO_RANGES.map(r=>r.label);
+  const total = viaveis.length;
+
+  const trocos = viaveis.map(r => Number(r.Troco)).filter(v => isFinite(v) && v >= 0);
+  const minTroco = trocos.length ? Math.floor(Math.min(...trocos)) : 0;
+
+  const labels = bucketLabels.map((label,i)=> i===0 ? `${minTroco} a 500` : label);
+
+  const counts = bucketLabels.map(label => viaveis.filter(r => rangeTroco(r.Troco) === label).length);
+  const max = Math.max(1, ...counts);
+
+  return labels.map((label,i)=>{
+    const c = counts[i];
+    const pct = Math.round(c/max*100);
+    const share = total ? Math.round(c/total*100) : 0;
+
+    return `<div class="bar-row">
+      <span class="bar-label">${label}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+      <span class="bar-val">${c.toLocaleString("pt-BR")} <b>(${share}%)</b></span>
+    </div>`;
+  }).join("");
+}
+
+function renderResults(cfg, opts){
+  const scroll = !opts || opts.scroll !== false;
+  const total = resultRows.length;
+  const nV = resultRows.filter(r=>r.Decisao==="Viável").length;
+  const nI = total - nV;
+  const pctViavel = total ? Math.round(nV/total*100) : 0;
+
+  const trocoTotal = resultRows.reduce((s,r)=> s + (r.Decisao==="Viável" ? (r.Troco||0) : 0), 0);
+  const agioTotal = resultRows.reduce((s,r)=> s + (r.Decisao==="Viável" ? (r.Agio_Originador||0) : 0), 0);
+  const vpClienteTotal = resultRows.reduce((s,r)=> s + (r.Decisao==="Viável" ? (r.Valor_Presente_Cliente||0) : 0), 0);
+  const iofTotal = resultRows.reduce((s,r)=> s + (r.Decisao==="Viável" ? (r.IOF||0) : 0), 0);
+  const feeTotal = resultRows.reduce((s,r)=> s + (r.Decisao==="Viável" ? (r.Fee||0) : 0), 0);
+
+  $("kTotal").textContent = total.toLocaleString("pt-BR");
+  $("kViavel").textContent = nV.toLocaleString("pt-BR");
+  $("kInviavel").textContent = nI.toLocaleString("pt-BR");
+  $("kPct").textContent = pctViavel + "%";
+  $("kTrocoTotal").textContent = "R$ " + fmtBRL.format(trocoTotal);
+  $("kVpCliente").textContent = "R$ " + fmtBRL.format(vpClienteTotal);
+  $("kAgioTotal").textContent = "R$ " + fmtBRL.format(agioTotal);
+  $("kIofTotal").textContent = "R$ " + fmtBRL.format(iofTotal);
+  $("kFeeTotal").textContent = "R$ " + fmtBRL.format(feeTotal);
+  $("kSomaCombo").textContent = "R$ " + fmtBRL.format(vpClienteTotal + trocoTotal + iofTotal + feeTotal);
+  $("resTitle").textContent = `Resultado - ${cfg.nome}`;
+
+  const now = lastRunTimestamp || new Date();
+  $("genTime").textContent = `Relatório gerado em ${now.toLocaleDateString("pt-BR")} às ${now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`;
+  $("ftTimestamp").textContent = `Última geração: ${now.toLocaleDateString("pt-BR")} ${now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`;
+
+  $("execSummary").innerHTML = `<span class="es-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.5 1 1.3 1 2.1V16h6v-.4c0-.8.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></svg></span>` +
+    `De <b>${total.toLocaleString("pt-BR")}</b> CCBs analisados na modalidade <b>${cfg.nome}</b>, ` +
+    `<b>${nV.toLocaleString("pt-BR")}</b> (<b>${pctViavel}%</b>) são viáveis, liberando um troco líquido total de ` +
+    `<b>R$ ${fmtBRL.format(trocoTotal)}</b> e ágio de <b>R$ ${fmtBRL.format(agioTotal)}</b> para o originador.`;
+
+  $("donutBox").innerHTML = buildDonut(nV, total);
+  $("trocoBars").innerHTML = buildTrocoBars();
+
+  const chips = [];
+
+  for(const [k,v] of Object.entries(paramValues)){
+    const f = FIELDS[k];
+    const val = f.unit === "% a.m."
+      ? fmtBRL.format(v) + "% a.m."
+      : f.unit === "R$"
+        ? "R$ " + fmtBRL.format(v)
+        : v + " " + f.unit;
+
+    chips.push(`<span class="chip"><b>${f.label}</b>${val}</span>`);
+  }
+
+  $("paramsum").innerHTML = chips.join("");
+
+  const cols = resultColsFor(selMode);
+  const prevCols = ["#", ...cols];
+  const isTaxa = c => c==="Taxa_Refin" || c==="Taxa_Base";
+  const LIM = 200;
+  const tb = $("resTable");
+
+  let html = "<thead><tr>" + prevCols.map(c=>`<th>${c==="#"?"Linha":colLabelFor(selMode, c)}</th>`).join("") + "</tr></thead><tbody>";
+
+  resultRows.slice(0,LIM).forEach((r,i)=>{
+    html += "<tr>" + prevCols.map(c=>{
+      if(c==="#") return `<td>${i+1}</td>`;
+
+      if(c==="Decisao"){
+        const v = r.Decisao==="Viável";
+        const ic = v
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+        return `<td><span class="pill ${v?"v":"i"}">${ic}${r.Decisao}</span></td>`;
+      }
+
+      const v = r[c];
+
+      if(v===null || v===undefined || v==="") return "<td>-</td>";
+
+      if(typeof v === "number" && c!=="CCB"){
+        return `<td>${isTaxa(c) ? fmtTaxaPreview.format(v * 100) + "%" : fmtBRL.format(v)}</td>`;
+      }
+
+      return `<td>${String(v)}</td>`;
+    }).join("") + "</tr>";
+  });
+
+  html += "</tbody>";
+  tb.innerHTML = html;
+
+  $("truncnote").textContent = total > LIM
+    ? `Pré-visualização das primeiras ${LIM} linhas do dashboard. O arquivo baixado contém todas as ${resultRowsAll.length} linhas e as abas Resultado e Resumo.`
+    : "O arquivo baixado contém as abas Resultado e Resumo, com viabilidade por faixa de troco.";
+
+  $("outname").textContent = `Arquivo: refinanciamento_${selMode}_resultado.xlsx`;
+
+  const filtrado = resultRowsAll && resultRows.length !== resultRowsAll.length;
+  $("btnDownloadFiltered").style.display = filtrado ? "inline-flex" : "none";
+
+  $("results").classList.add("show");
+  if(scroll) $("results").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+/* =====================================================================
+   FILTRO DE FAIXA DE TAXA (só dashboard, exportação continua completa)
+   ===================================================================== */
+
+function taxaRangeDefaults(){
+  const taxas = resultRowsAll
+    .filter(r => r.Decisao === "Viável" && isFinite(r.Taxa_Refin))
+    .map(r => r.Taxa_Refin * 100);
+
+  if(!taxas.length) return null;
+
+  return {
+    min: Math.floor(Math.min(...taxas) * 100) / 100,
+    max: Math.ceil(Math.max(...taxas) * 100) / 100
+  };
+}
+
+let resultRowsTaxa = null;
+
+function setupTaxaRangeFilter(cfg){
+  const card = $("taxaRangeCard");
+  $("concCard").style.display = resultRowsAll && resultRowsAll.length ? "block" : "none";
+  $("concModo").value = "troco";
+  $("concPercentual").value = 100;
+
+  if(selMode !== "buscataxa300" && selMode !== "buscataxa"){
+    card.style.display = "none";
+    resultRowsTaxa = resultRowsAll;
+    applyConclusaoFilter(true);
+    return;
+  }
+
+  const def = taxaRangeDefaults();
+
+  if(!def){
+    card.style.display = "none";
+    resultRowsTaxa = resultRowsAll;
+    applyConclusaoFilter(true);
+    return;
+  }
+
+  card.style.display = "block";
+  $("taxaRangeMin").value = def.min;
+  $("taxaRangeMax").value = def.max;
+
+  applyTaxaRangeFilter(true);
+}
+
+function applyTaxaRangeFilter(scrollIntoView){
+  const min = parseFloat($("taxaRangeMin").value);
+  const max = parseFloat($("taxaRangeMax").value);
+
+  if(!isFinite(min) || !isFinite(max)){
+    resultRowsTaxa = resultRowsAll;
+  }else{
+    const minR = min / 100, maxR = max / 100;
+    resultRowsTaxa = resultRowsAll.filter(r =>
+      r.Decisao !== "Viável" || (isFinite(r.Taxa_Refin) && r.Taxa_Refin >= minR && r.Taxa_Refin <= maxR)
+    );
+  }
+
+  $("taxaRangeInfo").textContent = `${resultRowsTaxa.length.toLocaleString("pt-BR")} de ${resultRowsAll.length.toLocaleString("pt-BR")} CCBs no dashboard`;
+
+  applyConclusaoFilter(scrollIntoView);
+}
+
+$("taxaRangeMin").addEventListener("input", ()=>applyTaxaRangeFilter(false));
+$("taxaRangeMax").addEventListener("input", ()=>applyTaxaRangeFilter(false));
+
+$("btnTaxaRangeReset").addEventListener("click", ()=>{
+  const def = taxaRangeDefaults();
+  if(def){
+    $("taxaRangeMin").value = def.min;
+    $("taxaRangeMax").value = def.max;
+  }
+  applyTaxaRangeFilter(false);
+});
+
+/* =====================================================================
+   FILTRO DE % DE CONCLUSÃO (por valor de troco ou quantidade de contratos)
+   ===================================================================== */
+
+function applyConclusaoFilter(scrollIntoView){
+  const pct = parseFloat($("concPercentual").value);
+  const modo = $("concModo").value;
+  const base = resultRowsTaxa || resultRowsAll;
+
+  const naoViaveis = base.filter(r => r.Decisao !== "Viável");
+  const viaveis = base.filter(r => r.Decisao === "Viável").slice().sort((a,b) => (b.Troco||0) - (a.Troco||0));
+
+  let selecionados;
+  if(!isFinite(pct) || pct >= 100){
+    selecionados = viaveis;
+  }else if(pct <= 0){
+    selecionados = [];
+  }else if(modo === "qtd"){
+    const n = Math.round(viaveis.length * pct / 100);
+    selecionados = viaveis.slice(0, n);
+  }else{
+    const trocoTotal = viaveis.reduce((s,r)=> s + (r.Troco||0), 0);
+    const alvo = trocoTotal * pct / 100;
+    selecionados = [];
+    let acumulado = 0;
+    for(const r of viaveis){
+      selecionados.push(r);
+      acumulado += (r.Troco||0);
+      if(acumulado >= alvo) break;
+    }
+  }
+
+  resultRows = [...naoViaveis, ...selecionados];
+
+  $("concInfo").textContent = `${selecionados.length.toLocaleString("pt-BR")} de ${viaveis.length.toLocaleString("pt-BR")} viáveis no dashboard`;
+
+  renderResults(MODES[selMode], { scroll: !!scrollIntoView });
+}
+
+$("concPercentual").addEventListener("input", ()=>applyConclusaoFilter(false));
+$("concModo").addEventListener("change", ()=>applyConclusaoFilter(false));
+
+$("btnConcReset").addEventListener("click", ()=>{
+  $("concModo").value = "troco";
+  $("concPercentual").value = 100;
+  applyConclusaoFilter(false);
+});
+
+/* =====================================================================
+   RESUMO POR FAIXA DE TROCO
+   ===================================================================== */
+
+const TROCO_RANGES = [
+  { label:"0 a 500",       test:v => v >= 0    && v <= 500 },
+  { label:"501 a 1000",    test:v => v > 500   && v <= 1000 },
+  { label:"1001 a 2500",   test:v => v > 1000  && v <= 2500 },
+  { label:"2500 a 5000",   test:v => v > 2500  && v <= 5000 },
+  { label:">5000",         test:v => v > 5000 }
+];
+
+function rangeTroco(valor){
+  const v = Number(valor);
+
+  if(!isFinite(v) || v < 0) return "Sem troco / não calculado";
+
+  const r = TROCO_RANGES.find(x => x.test(v));
+  return r ? r.label : "Sem troco / não calculado";
+}
+
+function buildResumoRows(rows){
+  if(!rows) return [];
+
+  const out = [];
+
+  const addLinha = (faixa, lista) => {
+    const viaveis = lista.filter(r => r.Decisao === "Viável").length;
+    const naoViaveis = lista.length - viaveis;
+
+    out.push({
+      Modalidade: MODES[selMode].nome,
+      Faixa_Troco: faixa,
+      CCBs_Viaveis: viaveis,
+      CCBs_Nao_Viaveis: naoViaveis,
+      Total_CCBs: lista.length,
+      Percentual_Viavel: lista.length ? viaveis / lista.length : 0
+    });
+  };
+
+  addLinha("Geral", rows);
+
+  for(const rg of TROCO_RANGES){
+    addLinha(rg.label, rows.filter(r => rangeTroco(r.Troco) === rg.label));
+  }
+
+  addLinha(
+    "Sem troco / não calculado",
+    rows.filter(r => rangeTroco(r.Troco) === "Sem troco / não calculado")
+  );
+
+  return out;
+}
+
+function exportWorkbook(rows, fileSuffix){
+  const cols = resultColsFor(selMode);
+  const isPrazoFixo = selMode === "prazofixo";
+  const headerRow = isPrazoFixo ? cols.map(c => colLabelFor(selMode, c)) : cols;
+
+  const sheetRows = isPrazoFixo
+    ? rows.map(r=>{
+        const o = {};
+        cols.forEach((c,i)=>{ o[headerRow[i]] = r[c]; });
+        return o;
+      })
+    : rows;
+
+  const ws = XLSX.utils.json_to_sheet(sheetRows, { header: headerRow });
+
+  const resumoHeader = [
+    "Modalidade",
+    "Faixa_Troco",
+    "CCBs_Viaveis",
+    "CCBs_Nao_Viaveis",
+    "Total_CCBs",
+    "Percentual_Viavel"
+  ];
+
+  const resumoRows = buildResumoRows(rows);
+  const wsResumo = XLSX.utils.json_to_sheet(resumoRows, { header: resumoHeader });
+
+  ws["!cols"] = headerRow.map(c => ({ wch: Math.max(12, Math.min(32, String(c).length + 2)) }));
+  wsResumo["!cols"] = [{wch:24},{wch:24},{wch:14},{wch:18},{wch:12},{wch:16}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Resultado");
+  XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+  XLSX.writeFile(wb, `refinanciamento_${selMode}_${fileSuffix}.xlsx`);
+}
+
+$("btnDownload").addEventListener("click", ()=>{
+  if(!resultRowsAll) return;
+  exportWorkbook(resultRowsAll, "resultado");
+});
+
+$("btnDownloadFiltered").addEventListener("click", ()=>{
+  if(!resultRows) return;
+  exportWorkbook(resultRows, "dashboard_filtrado");
+});
+</script>
+</body>
+</html>
