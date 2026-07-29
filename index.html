@@ -157,19 +157,22 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .hd-local i{width:5px;height:5px;border-radius:50%;background:var(--good-strong);box-shadow:0 0 8px var(--good-strong)}
 
 /* ── Shell: sidebar de configuração + palco principal ── */
-.shell{flex:1;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);column-gap:28px;align-items:start;padding-top:24px}
-.side{position:sticky;top:70px;display:flex;flex-direction:column;gap:22px;max-height:calc(100vh - 90px);overflow-y:auto;padding-bottom:24px}
-.stage{min-width:0;padding-bottom:70px}
+.shell{flex:1;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);column-gap:40px;align-items:start;padding-top:36px}
+.side{position:sticky;top:78px;display:flex;flex-direction:column;gap:26px;max-height:calc(100vh - 98px);overflow-y:auto;overflow-x:hidden;padding:2px 2px 24px 28px}
+.stage{position:relative;min-width:0;padding:2px 0 76px 30px}
+.stage:before{content:"";position:absolute;top:11px;bottom:64px;left:11px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.16) 85%,transparent)}
+.side:before{content:"";position:absolute;top:10px;bottom:26px;left:10px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),transparent)}
 
 /* ── Cabeçalhos de seção ── */
-.side-head{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.side-head{position:relative;display:flex;align-items:baseline;gap:9px;margin:0 0 12px -28px}
 .side-head .s-n{width:20px;height:20px;font-size:9.5px}
-.side-head h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
-.sec{margin-top:28px;scroll-margin-top:80px}
+.side-head h2{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.sec{margin-top:40px;scroll-margin-top:80px}
 .sec:first-child{margin-top:0}
-.s-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.s-n{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1px solid var(--line-dark);background:var(--surface);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted)}
-.s-head h2{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.s-head{position:relative;display:flex;align-items:center;gap:12px;margin:0 0 16px -30px}
+.s-n{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:23px;height:23px;border-radius:50%;background:linear-gradient(150deg,var(--accent),var(--accent-2));font-family:var(--mono);font-size:10px;font-weight:700;color:#F5F7FA;box-shadow:0 0 0 4px var(--bg),0 4px 12px -4px rgba(42,78,158,.6)}
+.side-head .s-n{background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#F5F7FA;box-shadow:0 0 0 4px var(--bg),0 3px 10px -4px rgba(42,78,158,.55)}
+.s-head h2{font-size:16px;font-weight:700;letter-spacing:-.012em;color:var(--ink)}
 .s-head .hint{margin-left:auto;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
 
 /* ── Card ── */
@@ -306,14 +309,15 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 #results{display:none}
 #results.show{display:block;animation:fadeUp .25s var(--ease)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.gen-time{margin-bottom:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
-.summary-card{margin-bottom:18px;background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--r);overflow:hidden}
-.exec-summary{position:relative;padding:14px 18px 14px 50px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+.gen-time{margin-bottom:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:right}
+.summary-card{position:relative;margin-bottom:22px;background:linear-gradient(155deg,var(--surface-3),var(--surface) 60%);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-md)}
+.summary-card:before{content:"";position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
+.exec-summary{position:relative;padding:20px 22px 20px 66px;font-size:14px;line-height:1.65;color:var(--ink-soft)}
 .exec-summary b{color:var(--ink);font-weight:700}
-.exec-summary .es-icon{position:absolute;left:14px;top:14px;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--muted)}
-.exec-summary .es-icon svg{width:14px;height:14px}
-.paramsum{display:flex;flex-wrap:wrap;gap:7px 9px;padding:11px 18px;border-top:1px solid var(--line)}
-.paramsum .chip{display:inline-flex;align-items:baseline;gap:5px;background:var(--surface-3);border:1px solid var(--line-dark);border-radius:5px;padding:3px 9px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.exec-summary .es-icon{position:absolute;left:20px;top:20px;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#F5F7FA;box-shadow:0 6px 16px -6px rgba(42,78,158,.5)}
+.exec-summary .es-icon svg{width:15px;height:15px}
+.paramsum{display:flex;flex-wrap:wrap;gap:7px 9px;padding:13px 22px;border-top:1px solid var(--line);background:rgba(0,0,0,.12)}
+.paramsum .chip{display:inline-flex;align-items:baseline;gap:5px;background:var(--surface-3);border:1px solid var(--line-dark);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .paramsum .chip b{color:var(--ink-soft);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
 
 /* ── Filtros do dashboard ── */
@@ -336,7 +340,8 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .tr-unit{font-family:var(--mono);font-size:10px;color:var(--faint)}
 
 /* ── Indicadores ── */
-.section-label{display:flex;align-items:center;gap:8px;margin:22px 0 10px;font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.07em}
+.section-label{display:flex;align-items:center;gap:9px;margin:32px 0 14px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em}
+.section-label:before{content:"";width:6px;height:6px;border-radius:2px;background:linear-gradient(135deg,var(--accent),var(--accent-2));flex-shrink:0}
 .section-label:first-of-type{margin-top:0}
 .section-label:after{content:"";flex:1;height:1px;background:var(--line)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:6px}
@@ -464,7 +469,6 @@ table.res tbody tr:hover td{background:var(--surface-3)}
         <path d="M0,150 L40,138 L90,148 L140,110 L190,120 L240,80 L290,95 L340,55 L390,68 L440,30 L490,42 L520,20" fill="none" stroke="url(#gvLine)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <span class="gv-chip gv-chip-1">Cálculo em segundos</span>
-      <span class="gv-chip gv-chip-2">100% auditável</span>
     </div>
   </div>
 
@@ -493,7 +497,6 @@ table.res tbody tr:hover td{background:var(--surface-3)}
     </form>
     <div class="gate-foot">
       <span class="gate-pill"><i></i>100% local</span>
-      <span class="gate-pill">Senha com hash SHA-256</span>
       <span class="gate-pill">Nenhum dado sai do navegador</span>
     </div>
   </div>
@@ -636,8 +639,6 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <span class="s-n">03</span><h2>Base Datacob</h2>
       <span class="hint">Base bruta → Valor Presente + agrupado por CCB, no navegador</span>
     </div>
-
-    <p class="raw-sub" style="margin-bottom:12px">Arraste a base bruta do Datacob (completa, linha a linha). O navegador roda automaticamente a mesma lógica do <code>Valor_Presente_Datacob.py</code>: detecta separador/encoding, filtra Status = "A", calcula Valor Presente e agrupa por CCB — sem precisar rodar Python nem gerar CSV intermediário.</p>
 
     <div class="field raw-date">
       <label for="rawDataInput">Data Input (referência do cálculo)</label>
