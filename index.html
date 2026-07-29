@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 /* ─────────────────────────────────────────────────────────
    Refinanciamento FIDC — Motor de Cálculo
@@ -259,6 +260,8 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .raw-body{margin-top:14px;display:flex;flex-direction:column;gap:12px}
 .raw-date{max-width:220px}
 .raw-progwrap{display:flex;align-items:center;gap:12px}
+.shared-badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--good-strong);background:var(--good-soft);border:1px solid rgba(46,230,160,.3);border-radius:999px;padding:6px 12px}
+.shared-badge i{width:5px;height:5px;border-radius:50%;background:var(--good-strong);box-shadow:0 0 8px var(--good-strong);flex-shrink:0}
 
 /* ── Card de confiança/metodologia (sidebar) ── */
 .trust-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
@@ -516,6 +519,8 @@ table.res tbody tr:hover td{background:var(--surface-3)}
     var gate = document.getElementById("authGate");
     if(gate) gate.style.display = "none";
     document.documentElement.style.overflow = "";
+    window.__refinUnlocked = true;
+    if(window.loadSharedDataIntoApp) window.loadSharedDataIntoApp();
   }
 
   if(sessionStorage.getItem(SESSION_KEY) === "1"){
@@ -662,11 +667,18 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <span class="runstatus" id="rawStatus"></span>
     </div>
     <div class="raw-progwrap" id="btnSaveRawCsvWrap" style="display:none">
+      <button class="btn btn-primary" id="btnPublishShared" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10Z"/></svg>
+        Publicar para todos
+      </button>
       <button class="btn btn-ghost" id="btnSaveRawCsv" type="button">
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
         Baixar agrupado (.csv)
       </button>
-      <span class="auto-hint">Opcional: guarda uma cópia do agrupado por CCB já calculado.</span>
+      <span class="auto-hint" id="publishHint">"Publicar" fica visível pra qualquer um com o link. "Baixar" só salva uma cópia local.</span>
+    </div>
+    <div class="raw-progwrap" id="sharedInfoWrap" style="display:none">
+      <span class="shared-badge" id="sharedInfo"></span>
     </div>
 
     <details class="raw-block" id="prontoDetails">
@@ -1843,6 +1855,74 @@ $("btnSaveRawCsv").addEventListener("click", async ()=>{
     await saveAgrupadoCsv(lastRawGroupedRows);
   }catch(e){
     showErr("Não foi possível salvar o arquivo agrupado.\n" + e.message);
+  }
+});
+
+/* =====================================================================
+   BASE COMPARTILHADA (Supabase) — "publicar para todos"
+   ===================================================================== */
+
+const SUPABASE_URL = "https://xobtvoganslqhwledysq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvYnR2b2dhbnNscWh3bGVkeXNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1OTUyMjEsImV4cCI6MjA5NzE3MTIyMX0.E0kES6d1-jr3yxWFC4ZsE8MQ7ttOR5dOHovJiZtjXkA";
+const sbClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+async function publishSharedData(rows){
+  if(!sbClient) throw new Error("Cliente Supabase não carregou (verifique a conexão).");
+  const { error } = await sbClient.from("agrupado_ccb").insert({ data: rows });
+  if(error) throw new Error(error.message);
+}
+
+async function fetchSharedData(){
+  if(!sbClient) return null;
+
+  const { data, error } = await sbClient
+    .from("agrupado_ccb")
+    .select("data, atualizado_em")
+    .order("atualizado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if(error || !data) return null;
+  return data;
+}
+
+async function loadSharedDataIntoApp(){
+  try{
+    const shared = await fetchSharedData();
+    if(!shared || !Array.isArray(shared.data) || !shared.data.length) return;
+
+    const dt = new Date(shared.atualizado_em);
+    const horario = dt.toLocaleDateString("pt-BR") + " às " + dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    const approxSize = new Blob([JSON.stringify(shared.data)]).size;
+    const ok = ingestRows(shared.data, "Base compartilhada (publicada por alguém do time)", approxSize, horario);
+
+    if(ok){
+      $("sharedInfoWrap").style.display = "flex";
+      $("sharedInfo").innerHTML = `<i></i>Base compartilhada carregada — publicada em ${horario}`;
+    }
+  }catch(e){
+    /* silencioso: se a base compartilhada falhar, o usuário ainda pode importar manualmente */
+  }
+}
+
+if(window.__refinUnlocked) loadSharedDataIntoApp();
+
+$("btnPublishShared").addEventListener("click", async ()=>{
+  if(!lastRawGroupedRows) return;
+
+  const btn = $("btnPublishShared");
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Publicando...";
+
+  try{
+    await publishSharedData(lastRawGroupedRows);
+    showWarn(`Base publicada para todos com sucesso! Quem abrir o link agora carrega automaticamente essa versão (${lastRawGroupedRows.length.toLocaleString("pt-BR")} CCBs).`);
+  }catch(e){
+    showErr("Não foi possível publicar a base compartilhada.\n" + e.message);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
   }
 });
 
