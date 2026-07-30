@@ -961,6 +961,45 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <div id="vpForm" style="display:none">
         <div class="card vp-source" id="vpSourceInfo"></div>
 
+        <div class="card filters show" id="vpFiltersCard" style="margin-top:16px">
+          <div class="filters-grid">
+            <div class="filter-col" data-filter="Convenio">
+              <div class="filter-head">
+                <label>Convênio</label>
+                <div class="filter-actions">
+                  <button type="button" class="linkbtn" data-act="all">Todos</button>
+                  <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+                </div>
+              </div>
+              <input type="text" class="filter-search" placeholder="Buscar convênio...">
+              <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+            </div>
+            <div class="filter-col" data-filter="Carteira">
+              <div class="filter-head">
+                <label>Carteira</label>
+                <div class="filter-actions">
+                  <button type="button" class="linkbtn" data-act="all">Todos</button>
+                  <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+                </div>
+              </div>
+              <input type="text" class="filter-search" placeholder="Buscar carteira...">
+              <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+            </div>
+            <div class="filter-col" data-filter="Grupo">
+              <div class="filter-head">
+                <label>Grupo</label>
+                <div class="filter-actions">
+                  <button type="button" class="linkbtn" data-act="all">Todos</button>
+                  <button type="button" class="linkbtn" data-act="none">Nenhum</button>
+                </div>
+              </div>
+              <input type="text" class="filter-search" placeholder="Buscar grupo...">
+              <div class="filter-list" role="listbox" aria-multiselectable="true"></div>
+            </div>
+          </div>
+          <div class="filters-foot" id="vpFilterCount"></div>
+        </div>
+
         <div class="field raw-date" style="margin-top:16px">
           <label for="vpDate">Data de referência do Valor Presente</label>
           <div class="inwrap">
@@ -1889,6 +1928,7 @@ async function processRawDatacobFile(file, dataInputMs, onProgress){
 let lastRawGroupedRows = null;
 let lastImportedRawFile = null;
 let vpResultRows = null;
+let vpFilterState = {};
 
 function toBRLNumberString(n){
   if(typeof n !== "number" || !isFinite(n)) return n ?? "";
@@ -2005,6 +2045,10 @@ async function loadSharedDataIntoApp(){
     const shared = await fetchSharedData();
     if(!shared || !shared.rows.length) return;
 
+    if(baseData || lastImportedRawFile){
+      return; // usuário já importou a própria base enquanto a compartilhada carregava — não sobrescreve
+    }
+
     const horario = shared.updatedAt.toLocaleDateString("pt-BR") + " às " + shared.updatedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
     const ok = ingestRows(shared.rows, "Base compartilhada (publicada por alguém do time)", shared.size, horario);
 
@@ -2052,7 +2096,6 @@ async function loadRawFile(file){
   }
 
   lastImportedRawFile = file;
-  setupVpTabForFile(file);
 
   const dataInputStr = $("rawDataInput").value;
   if(!dataInputStr){
@@ -2091,6 +2134,8 @@ async function loadRawFile(file){
       const fstats = $("fstats");
       fstats.textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas · ${stats.ccbs.toLocaleString("pt-BR")} CCBs agrupados`;
       fstats.classList.add("show");
+
+      setupVpTabForFile(file);
     }
 
   }catch(err){
@@ -2180,6 +2225,69 @@ function setupVpTabForFile(file){
   if(!$("vpDate").value){
     $("vpDate").value = $("rawDataInput").value || new Date().toISOString().slice(0,10);
   }
+
+  buildVpFilters();
+}
+
+function buildVpFilters(){
+  const dims = ["Convenio","Carteira","Grupo"];
+  const container = $("vpFiltersCard");
+
+  for(const dim of dims){
+    const values = [...new Set(baseData.map(r => r[dim]))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    vpFilterState[dim] = new Set(values);
+
+    const col = container.querySelector(`.filter-col[data-filter="${dim}"]`);
+    const list = col.querySelector(".filter-list");
+    list.innerHTML = values.map(v => `
+      <label class="filter-opt">
+        <input type="checkbox" value="${escapeHtml(v)}" checked>
+        <span>${escapeHtml(v)}</span>
+      </label>`).join("");
+
+    list.onchange = e => {
+      if(e.target.type !== "checkbox") return;
+      vpFilterState[dim] = new Set([...list.querySelectorAll("input:checked")].map(o=>o.value));
+      refreshVpFilterCount();
+    };
+
+    col.querySelector('[data-act="all"]').onclick = () => {
+      list.querySelectorAll("input").forEach(o=>o.checked = true);
+      vpFilterState[dim] = new Set(values);
+      refreshVpFilterCount();
+    };
+
+    col.querySelector('[data-act="none"]').onclick = () => {
+      list.querySelectorAll("input").forEach(o=>o.checked = false);
+      vpFilterState[dim] = new Set();
+      refreshVpFilterCount();
+    };
+
+    const search = col.querySelector(".filter-search");
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+      list.querySelectorAll(".filter-opt").forEach(row=>{
+        row.hidden = !!q && !row.textContent.toLowerCase().includes(q);
+      });
+    };
+  }
+
+  refreshVpFilterCount();
+}
+
+function getVpAllowedCcbs(){
+  const allowed = new Set();
+  for(const r of baseData){
+    if(vpFilterState.Convenio.has(r.Convenio) && vpFilterState.Carteira.has(r.Carteira) && vpFilterState.Grupo.has(r.Grupo)){
+      allowed.add(r.CCB);
+    }
+  }
+  return allowed;
+}
+
+function refreshVpFilterCount(){
+  const n = getVpAllowedCcbs().size;
+  $("vpFilterCount").textContent = `${n.toLocaleString("pt-BR")} de ${baseData.length.toLocaleString("pt-BR")} CCBs selecionados`;
 }
 
 $("btnCalcVp").addEventListener("click", async ()=>{
@@ -2220,9 +2328,18 @@ $("btnCalcVp").addEventListener("click", async ()=>{
       return;
     }
 
-    vpResultRows = rows;
+    const allowedCcbs = getVpAllowedCcbs();
+    const filteredRows = rows.filter(r => allowedCcbs.has(r.CCB));
 
-    $("vpResultMeta").textContent = `${rows.length.toLocaleString("pt-BR")} CCBs | referência ${dataInputStr.split("-").reverse().join("/")}`;
+    if(!filteredRows.length){
+      $("vpAlertErr").textContent = "Nenhum CCB corresponde aos filtros de Convênio/Carteira/Grupo selecionados.";
+      $("vpAlertErr").classList.add("show");
+      return;
+    }
+
+    vpResultRows = filteredRows;
+
+    $("vpResultMeta").textContent = `${filteredRows.length.toLocaleString("pt-BR")} de ${rows.length.toLocaleString("pt-BR")} CCBs (filtro aplicado) | referência ${dataInputStr.split("-").reverse().join("/")}`;
     $("vpResultStats").textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas`;
     $("vpResultCard").classList.add("show");
 
