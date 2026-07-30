@@ -942,8 +942,12 @@ table.res tbody tr:hover td{background:var(--surface-3)}
 
       <div class="card vp-empty" id="vpEmptyState">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
-        Importe a base bruta na aba <b>Refinanciamento</b> primeiro — assim que carregar, ela fica disponível aqui também.
+        <span id="vpEmptyText">Importe a base bruta primeiro — o mesmo arquivo funciona nas duas abas.</span>
       </div>
+      <button class="btn btn-primary" id="btnImportFromVpTab" type="button" style="margin-top:12px">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
+        Importar base bruta
+      </button>
 
       <div id="vpForm" style="display:none">
         <div class="card vp-source" id="vpSourceInfo"></div>
@@ -1932,6 +1936,7 @@ async function loadSharedDataIntoApp(){
     if(ok){
       $("sharedInfoWrap").style.display = "flex";
       $("sharedInfo").innerHTML = `<i></i>Base compartilhada carregada — publicada em ${horario}`;
+      updateVpEmptyState();
     }
   }catch(e){
     /* silencioso: se a base compartilhada falhar, o usuário ainda pode importar manualmente */
@@ -2114,7 +2119,7 @@ $("btnRestoreFile").addEventListener("click", async ()=>{
   }
 });
 
-dropRaw.addEventListener("click", async ()=>{
+async function openRawFilePicker(){
   if(supportsFileHandles){
     try{
       const [handle] = await window.showOpenFilePicker({
@@ -2129,7 +2134,10 @@ dropRaw.addEventListener("click", async ()=>{
     return;
   }
   fileInputRaw.click();
-});
+}
+
+dropRaw.addEventListener("click", openRawFilePicker);
+$("btnImportFromVpTab").addEventListener("click", openRawFilePicker);
 
 dropRaw.addEventListener("keydown", e=>{
   if(e.key==="Enter" || e.key===" "){
@@ -2200,6 +2208,19 @@ function selectTab(tab){
 
   $("panelRefin").style.display = isRefin ? "" : "none";
   $("panelVp").style.display = isRefin ? "none" : "";
+
+  if(!isRefin) updateVpEmptyState();
+}
+
+function updateVpEmptyState(){
+  if(lastImportedRawFile) return; // vpForm já deve estar visível nesse caso
+
+  const text = $("vpEmptyText");
+  if(baseData && baseData.length){
+    text.innerHTML = "A base carregada na aba <b>Refinanciamento</b> agora é o resultado já agrupado (compartilhado ou salvo) — sem os dados de vencimento por parcela, então não dá pra recalcular o Valor Presente a partir dela. Importe a base bruta original (com todas as linhas) pra habilitar esta aba.";
+  }else{
+    text.textContent = "Importe a base bruta primeiro — o mesmo arquivo funciona nas duas abas.";
+  }
 }
 
 $("tabBtnRefin").addEventListener("click", ()=>selectTab("refin"));
