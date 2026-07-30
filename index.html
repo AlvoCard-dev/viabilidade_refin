@@ -160,8 +160,16 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 /* ── Shell: sidebar de configuração + palco principal ── */
 .shell{flex:1;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);column-gap:40px;align-items:start;padding-top:36px}
 .side{position:sticky;top:78px;display:flex;flex-direction:column;gap:26px;max-height:calc(100vh - 98px);overflow-y:auto;overflow-x:hidden;padding:2px 2px 24px 28px}
-.stage{position:relative;min-width:0;padding:2px 0 76px 30px}
-.stage:before{content:"";position:absolute;top:11px;bottom:64px;left:11px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.16) 85%,transparent)}
+.stage{min-width:0}
+.stage-flow{position:relative;padding:2px 0 76px 30px}
+.stage-flow:before{content:"";position:absolute;top:11px;bottom:64px;left:11px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.16) 85%,transparent)}
+.vp-only-sec{position:relative;margin-bottom:40px;padding:20px 22px 24px;background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--line);border-left:3px solid var(--tech);border-radius:16px}
+.vp-only-sec .s-head{margin:0 0 8px 0}
+.vp-badge{background:var(--tech-soft) !important;color:var(--tech-2) !important;border:1px solid rgba(139,124,246,.35);box-shadow:none !important;font-size:9px !important;letter-spacing:.02em}
+#vpOnlyFilecard{display:none;margin-top:12px}
+#vpOnlyFilecard.show{display:flex}
+#vpOnlyProgWrap{display:none;margin-top:4px}
+#vpOnlyProgWrap.show{display:flex}
 .side:before{content:"";position:absolute;top:10px;bottom:26px;left:10px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),transparent)}
 
 /* ── Cabeçalhos de seção ── */
@@ -258,7 +266,7 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .raw-block>summary::-webkit-details-marker{display:none}
 .raw-block>summary:before{content:"▸";color:var(--faint);font-size:10px;transition:transform var(--dur) var(--ease)}
 .raw-block[open]>summary:before{transform:rotate(90deg)}
-.raw-block .raw-sub{margin:6px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
+.raw-sub{margin:6px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
 .raw-body{margin-top:14px;display:flex;flex-direction:column;gap:12px}
 .raw-date{max-width:220px}
 .raw-progwrap{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px}
@@ -641,6 +649,54 @@ table.res tbody tr:hover td{background:var(--surface-3)}
 
 <main class="stage">
 
+  <section class="sec vp-only-sec">
+    <div class="s-head">
+      <span class="s-n vp-badge">VP</span><h2>Apenas Valor Presente</h2>
+      <span class="hint">Sem viabilidade, sem refinanciamento</span>
+    </div>
+    <p class="raw-sub" style="margin-bottom:12px">Ferramenta separada: calcula só o Valor Presente por CCB pra uma data de referência e já baixa o CSV — não usa a modalidade nem os parâmetros ao lado, e não passa pela seção de refinanciamento abaixo.</p>
+
+    <div class="field raw-date">
+      <label for="vpDataInput">Data Input (referência do cálculo)</label>
+      <div class="inwrap">
+        <input id="vpDataInput" type="date">
+      </div>
+    </div>
+
+    <div class="drop" id="dropVpOnly" tabindex="0" role="button" aria-label="Selecionar base bruta para calcular apenas Valor Presente">
+      <span class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
+      </span>
+      <div>
+        <div class="big">Importar base bruta do Datacob</div>
+        <div class="sub">Arraste o .csv completo aqui, ou clique para selecionar. Calcula o Valor Presente por CCB e já baixa o resultado — nenhuma modalidade é executada.</div>
+      </div>
+    </div>
+    <input type="file" id="fileInputVpOnly" accept=".csv" hidden>
+
+    <div class="raw-progwrap" id="vpOnlyProgWrap">
+      <div class="progress" id="vpOnlyProg"><div id="vpOnlyProgbar"></div></div>
+      <span class="runstatus" id="vpOnlyStatus"></span>
+    </div>
+
+    <div class="card filecard" id="vpOnlyFilecard">
+      <span class="ficon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+      </span>
+      <span class="fname" id="vpOnlyFname"></span>
+      <span class="fmeta" id="vpOnlyFmeta"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" id="btnDownloadVpOnly" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+        Baixar Valor Presente (.csv)
+      </button>
+      <span class="fstats show" id="vpOnlyFstats"></span>
+    </div>
+
+    <div class="alert err" id="vpOnlyAlertErr" role="alert"></div>
+  </section>
+
+  <div class="stage-flow">
   <section class="sec">
     <div class="s-head">
       <span class="s-n">03</span><h2>Base Datacob</h2>
@@ -910,6 +966,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <span class="runinfo" id="outname"></span>
     </div>
   </section>
+  </div>
 
 </main>
 </div>
@@ -2045,6 +2102,127 @@ fileInputRaw.addEventListener("change", e=>{
   const f = e.target.files[0];
   if(f) loadRawFile(f);
   fileInputRaw.value = "";
+});
+
+/* =====================================================================
+   APENAS VALOR PRESENTE — ferramenta separada, sem refinanciamento
+   Reaproveita processRawDatacobFile/buildAgrupadoCsvText, mas não toca
+   em baseData, filtros, modalidade nem no motor de viabilidade.
+   ===================================================================== */
+
+let vpOnlyRows = null;
+
+function downloadTextFile(text, filename, mime){
+  const blob = new Blob([text], { type: mime || "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function loadVpOnlyFile(file){
+  $("vpOnlyAlertErr").classList.remove("show");
+  $("vpOnlyFilecard").classList.remove("show");
+  vpOnlyRows = null;
+
+  if(!/\.csv$/i.test(file.name)){
+    $("vpOnlyAlertErr").textContent = "A base bruta precisa ter extensão .csv.";
+    $("vpOnlyAlertErr").classList.add("show");
+    return;
+  }
+
+  const dataInputStr = $("vpDataInput").value;
+  if(!dataInputStr){
+    $("vpOnlyAlertErr").textContent = "Informe a Data Input (referência do cálculo) antes de importar a base bruta.";
+    $("vpOnlyAlertErr").classList.add("show");
+    return;
+  }
+
+  const [y, m, d] = dataInputStr.split("-").map(Number);
+  const dataInputMs = Date.UTC(y, m-1, d);
+
+  $("vpOnlyProgWrap").classList.add("show");
+  $("vpOnlyProgbar").style.width = "0%";
+  $("vpOnlyStatus").textContent = "Lendo arquivo...";
+
+  try{
+    const { rows, stats } = await processRawDatacobFile(file, dataInputMs, pct=>{
+      $("vpOnlyProgbar").style.width = pct + "%";
+      $("vpOnlyStatus").textContent = `Processando... ${pct}%`;
+    });
+
+    $("vpOnlyStatus").textContent = "Concluído";
+
+    if(!rows.length){
+      $("vpOnlyAlertErr").textContent = "Nenhuma linha com Status = \"A\" e dados válidos foi encontrada na base bruta.";
+      $("vpOnlyAlertErr").classList.add("show");
+      return;
+    }
+
+    vpOnlyRows = rows;
+
+    const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    $("vpOnlyFname").textContent = file.name;
+    $("vpOnlyFmeta").textContent = `${rows.length.toLocaleString("pt-BR")} CCBs | ${(file.size/1024/1024).toFixed(2)} MB | atualizado às ${horario}`;
+    $("vpOnlyFstats").textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas`;
+    $("vpOnlyFilecard").classList.add("show");
+
+  }catch(err){
+    $("vpOnlyStatus").textContent = "Erro";
+    $("vpOnlyAlertErr").textContent = "Não foi possível processar a base bruta.\n" + err.message;
+    $("vpOnlyAlertErr").classList.add("show");
+
+  }finally{
+    setTimeout(()=>{
+      $("vpOnlyProg").classList.remove("show");
+      $("vpOnlyProgWrap").classList.remove("show");
+    }, 900);
+  }
+}
+
+$("btnDownloadVpOnly").addEventListener("click", ()=>{
+  if(!vpOnlyRows) return;
+  const dataInputStr = $("vpDataInput").value || "data";
+  downloadTextFile(buildAgrupadoCsvText(vpOnlyRows), `Valor_Presente_${dataInputStr}.csv`);
+});
+
+$("vpDataInput").value = new Date().toISOString().slice(0,10);
+
+const dropVpOnly = $("dropVpOnly");
+const fileInputVpOnly = $("fileInputVpOnly");
+
+dropVpOnly.addEventListener("click", ()=>fileInputVpOnly.click());
+
+dropVpOnly.addEventListener("keydown", e=>{
+  if(e.key==="Enter" || e.key===" "){
+    e.preventDefault();
+    fileInputVpOnly.click();
+  }
+});
+
+["dragover","dragenter"].forEach(ev=>dropVpOnly.addEventListener(ev, e=>{
+  e.preventDefault();
+  dropVpOnly.classList.add("over");
+}));
+
+["dragleave","drop"].forEach(ev=>dropVpOnly.addEventListener(ev, e=>{
+  e.preventDefault();
+  dropVpOnly.classList.remove("over");
+}));
+
+dropVpOnly.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) loadVpOnlyFile(f);
+});
+
+fileInputVpOnly.addEventListener("change", e=>{
+  const f = e.target.files[0];
+  if(f) loadVpOnlyFile(f);
+  fileInputVpOnly.value = "";
 });
 
 function escapeHtml(s){
