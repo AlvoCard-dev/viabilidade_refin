@@ -663,6 +663,13 @@ table.res tbody tr:hover td{background:var(--surface-3)}
 
 <main class="stage">
 
+  <div class="card vp-source" id="restoreFileBanner" style="display:none;margin-bottom:18px">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>
+    <span id="restoreFileText"></span>
+    <span class="spacer"></span>
+    <button class="btn btn-primary" id="btnRestoreFile" type="button">Reconectar arquivo</button>
+  </div>
+
   <div class="tabbar" role="tablist">
     <button class="tab-btn active" id="tabBtnRefin" type="button" role="tab" aria-selected="true">
       <svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>
@@ -687,13 +694,6 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <div class="inwrap">
         <input id="rawDataInput" type="date">
       </div>
-    </div>
-
-    <div class="card vp-source" id="restoreFileBanner" style="display:none;margin-bottom:12px">
-      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>
-      <span id="restoreFileText"></span>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" id="btnRestoreFile" type="button">Reconectar arquivo</button>
     </div>
 
     <div class="drop" id="dropRaw" tabindex="0" role="button" aria-label="Selecionar base bruta do Datacob">
