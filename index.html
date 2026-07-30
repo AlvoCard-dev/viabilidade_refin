@@ -941,13 +941,13 @@ table.res tbody tr:hover td{background:var(--surface-3)}
     <section class="sec" style="margin-top:0">
       <div class="s-head">
         <span class="s-n vp-badge">VP</span><h2>Apenas Valor Presente</h2>
-        <span class="hint">Mesma base importada, outra data de referência</span>
+        <span class="hint">Mesma base da aba Refinanciamento</span>
       </div>
-      <p class="raw-sub" style="margin-bottom:18px">Reaproveita o arquivo já importado na aba Refinanciamento — só recalcula o Valor Presente por CCB pra uma data de referência diferente (útil quando a data do saldo não é a mesma da operação). Não roda nenhuma modalidade nem mexe no resultado da outra aba.</p>
+      <p class="raw-sub" style="margin-bottom:18px">Usa a mesma base já carregada na aba Refinanciamento (importada agora ou compartilhada/publicada) — mostra e baixa só o Valor Presente por CCB, sem rodar nenhuma modalidade. Se o arquivo bruto desta sessão estiver disponível, também dá pra recalcular pra outra data de referência.</p>
 
       <div class="card vp-empty" id="vpEmptyState">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
-        <span id="vpEmptyText">Importe a base bruta primeiro — o mesmo arquivo funciona nas duas abas.</span>
+        <span id="vpEmptyText">Nenhuma base carregada ainda — importe na aba Refinanciamento ou aqui mesmo.</span>
       </div>
       <button class="btn btn-primary" id="btnImportFromVpTab" type="button" style="margin-top:12px">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
@@ -996,36 +996,55 @@ table.res tbody tr:hover td{background:var(--surface-3)}
           <div class="filters-foot" id="vpFilterCount"></div>
         </div>
 
-        <div class="field raw-date" style="margin-top:16px">
-          <label for="vpDate">Data de referência do Valor Presente</label>
-          <div class="inwrap">
-            <input id="vpDate" type="date">
-          </div>
-        </div>
-
-        <button class="btn btn-primary" id="btnCalcVp" type="button" style="margin-top:14px">
-          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-          Calcular Valor Presente
-        </button>
-
-        <div class="raw-progwrap" id="vpProgWrap" style="margin-top:14px">
-          <div class="progress" id="vpProg"><div id="vpProgbar"></div></div>
-          <span class="runstatus" id="vpStatus"></span>
-        </div>
-
-        <div class="card filecard" id="vpResultCard">
+        <div class="card filecard show" id="vpCurrentCard" style="margin-top:16px">
           <span class="ficon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
           </span>
-          <span class="fname" id="vpResultFname">Valor Presente calculado</span>
-          <span class="fmeta" id="vpResultMeta"></span>
+          <span class="fname">Valor Presente atual</span>
+          <span class="fmeta" id="vpCurrentMeta"></span>
           <span class="spacer"></span>
-          <button class="btn btn-ghost" id="btnDownloadVp" type="button">
+          <button class="btn btn-primary" id="btnDownloadVpCurrent" type="button">
             <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
-            Baixar (.csv)
+            Baixar Valor Presente (.csv)
           </button>
-          <span class="fstats show" id="vpResultStats"></span>
         </div>
+
+        <details class="raw-block" id="vpRecalcBlock" style="margin-top:16px">
+          <summary>Recalcular pra outra data de referência</summary>
+          <p class="raw-sub" id="vpRecalcHint"></p>
+          <div class="raw-body" id="vpRecalcBody" style="display:none">
+            <div class="field raw-date">
+              <label for="vpDate">Data de referência do Valor Presente</label>
+              <div class="inwrap">
+                <input id="vpDate" type="date">
+              </div>
+            </div>
+
+            <button class="btn btn-primary" id="btnCalcVp" type="button" style="margin-top:14px">
+              <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Calcular Valor Presente
+            </button>
+
+            <div class="raw-progwrap" id="vpProgWrap" style="margin-top:14px">
+              <div class="progress" id="vpProg"><div id="vpProgbar"></div></div>
+              <span class="runstatus" id="vpStatus"></span>
+            </div>
+
+            <div class="card filecard" id="vpResultCard">
+              <span class="ficon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+              </span>
+              <span class="fname" id="vpResultFname">Valor Presente recalculado</span>
+              <span class="fmeta" id="vpResultMeta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="btnDownloadVp" type="button">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+                Baixar (.csv)
+              </button>
+              <span class="fstats show" id="vpResultStats"></span>
+            </div>
+          </div>
+        </details>
 
         <div class="alert err" id="vpAlertErr" role="alert"></div>
       </div>
@@ -1457,9 +1476,11 @@ $("btnClear").addEventListener("click", ()=>{
   $("sharedInfoWrap").style.display = "none";
   $("btnSaveRawCsvWrap").style.display = "none";
   lastRawGroupedRows = null;
+  lastImportedRawFile = null;
   hideAlerts();
   hideResults();
   refreshRunState();
+  refreshVpTab();
 });
 
 function parseNumBR(v){
@@ -1941,7 +1962,7 @@ async function loadSharedDataIntoApp(){
     if(ok){
       $("sharedInfoWrap").style.display = "flex";
       $("sharedInfo").innerHTML = `<i></i>Base compartilhada carregada — publicada em ${horario}`;
-      updateVpEmptyState();
+      refreshVpTab();
     }
   }catch(e){
     /* silencioso: se a base compartilhada falhar, o usuário ainda pode importar manualmente */
@@ -2025,7 +2046,7 @@ async function loadRawFile(file){
       fstats.textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas · ${stats.ccbs.toLocaleString("pt-BR")} CCBs agrupados`;
       fstats.classList.add("show");
 
-      setupVpTabForFile(file);
+      refreshVpTab();
     }
 
   }catch(err){
@@ -2264,33 +2285,39 @@ function selectTab(tab){
   $("panelRefin").style.display = isRefin ? "" : "none";
   $("panelVp").style.display = isRefin ? "none" : "";
 
-  if(!isRefin) updateVpEmptyState();
-}
-
-function updateVpEmptyState(){
-  if(lastImportedRawFile) return; // vpForm já deve estar visível nesse caso
-
-  const text = $("vpEmptyText");
-  if(baseData && baseData.length){
-    text.innerHTML = "A base carregada na aba <b>Refinanciamento</b> agora é o resultado já agrupado (compartilhado ou salvo) — sem os dados de vencimento por parcela, então não dá pra recalcular o Valor Presente a partir dela. Importe a base bruta original (com todas as linhas) pra habilitar esta aba.";
-  }else{
-    text.textContent = "Importe a base bruta primeiro — o mesmo arquivo funciona nas duas abas.";
-  }
+  if(!isRefin) refreshVpTab();
 }
 
 $("tabBtnRefin").addEventListener("click", ()=>selectTab("refin"));
 $("tabBtnVp").addEventListener("click", ()=>selectTab("vp"));
 
-function setupVpTabForFile(file){
-  $("vpEmptyState").style.display = "none";
-  $("vpForm").style.display = "block";
-  $("vpSourceInfo").innerHTML = `Usando o arquivo importado na aba Refinanciamento: <b>${escapeHtml(file.name)}</b> (${(file.size/1024/1024).toFixed(2)} MB)`;
-
-  if(!$("vpDate").value){
-    $("vpDate").value = $("rawDataInput").value || new Date().toISOString().slice(0,10);
+function refreshVpTab(){
+  if(!baseData || !baseData.length){
+    $("vpEmptyState").style.display = "flex";
+    $("vpForm").style.display = "none";
+    return;
   }
 
+  $("vpEmptyState").style.display = "none";
+  $("vpForm").style.display = "block";
+
+  const sourceLabel = lastImportedRawFile
+    ? `Base bruta importada nesta sessão: <b>${escapeHtml(lastImportedRawFile.name)}</b>`
+    : `Base atual: <b>${escapeHtml(fileName || "carregada")}</b>`;
+  $("vpSourceInfo").innerHTML = `${sourceLabel} — ${baseData.length.toLocaleString("pt-BR")} CCBs`;
+
   buildVpFilters();
+
+  if(lastImportedRawFile){
+    $("vpRecalcBody").style.display = "block";
+    $("vpRecalcHint").textContent = "Reaproveita o arquivo bruto já importado nesta sessão pra recalcular o Valor Presente numa data diferente.";
+    if(!$("vpDate").value){
+      $("vpDate").value = $("rawDataInput").value || new Date().toISOString().slice(0,10);
+    }
+  }else{
+    $("vpRecalcBody").style.display = "none";
+    $("vpRecalcHint").textContent = "Só disponível quando a base bruta original (com todas as linhas, não o resultado já agrupado) está aberta nesta sessão — importe-a pra habilitar o recálculo.";
+  }
 }
 
 function buildVpFilters(){
@@ -2352,7 +2379,34 @@ function getVpAllowedCcbs(){
 function refreshVpFilterCount(){
   const n = getVpAllowedCcbs().size;
   $("vpFilterCount").textContent = `${n.toLocaleString("pt-BR")} de ${baseData.length.toLocaleString("pt-BR")} CCBs selecionados`;
+  $("vpCurrentMeta").textContent = `${n.toLocaleString("pt-BR")} de ${baseData.length.toLocaleString("pt-BR")} CCBs selecionados`;
 }
+
+function buildSimpleVpCsvText(rows){
+  const cols = ["CCB","Convenio","Carteira","Grupo","Valor_Original","Valor_Presente"];
+  const labels = ["CCB","Convenio","Carteira","Grupo","Valor Original","Valor Presente"];
+
+  const lines = [labels.join(";")];
+  for(const r of rows){
+    lines.push(cols.map(c=>{
+      const v = r[c];
+      return (c === "Valor_Original" || c === "Valor_Presente") ? toBRLNumberString(v) : (v ?? "");
+    }).join(";"));
+  }
+
+  return "﻿" + lines.join("\r\n") + "\r\n";
+}
+
+$("btnDownloadVpCurrent").addEventListener("click", ()=>{
+  if(!baseData || !baseData.length) return;
+
+  const allowed = getVpAllowedCcbs();
+  const rows = baseData.filter(r => allowed.has(r.CCB));
+  if(!rows.length) return;
+
+  const dateLabel = new Date().toISOString().slice(0,10);
+  downloadTextFile(buildSimpleVpCsvText(rows), `Valor_Presente_${dateLabel}.csv`);
+});
 
 $("btnCalcVp").addEventListener("click", async ()=>{
   if(!lastImportedRawFile) return;
