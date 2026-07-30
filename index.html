@@ -269,6 +269,7 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .filecard .spacer{flex:1}
 .filecard .fstats{display:none;flex-basis:100%;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint);font-family:var(--mono);line-height:1.6}
 .filecard .fstats.show{display:block}
+.filecard .fstats.warn{color:var(--warn)}
 .auto-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
 .auto-hint{font-size:10.5px;color:var(--faint);line-height:1.5}
 .auto-hint code{font-family:var(--mono);background:var(--surface-3);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink-soft)}
@@ -737,6 +738,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
         Remover
       </button>
       <span class="fstats" id="fstats"></span>
+      <span class="fstats" id="fileMemoryStatus" style="display:none"></span>
     </div>
     <div class="card filters" id="filtersCard">
       <div class="filters-grid">
@@ -1972,6 +1974,7 @@ async function loadRawFile(file){
   $("sharedInfoWrap").style.display = "none";
   $("restoreFileBanner").style.display = "none";
   $("fstats").classList.remove("show");
+  $("fileMemoryStatus").style.display = "none";
   lastRawGroupedRows = null;
 
   if(!/\.csv$/i.test(file.name)){
@@ -2059,7 +2062,7 @@ function openHandleDb(){
 }
 
 async function saveFileHandle(handle){
-  if(!supportsFileHandles) return;
+  if(!supportsFileHandles) return { ok:false, error:"API não suportada neste navegador" };
   try{
     const db = await openHandleDb();
     await new Promise((resolve, reject)=>{
@@ -2067,8 +2070,13 @@ async function saveFileHandle(handle){
       tx.objectStore("handles").put(handle, "lastRawFile");
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error("transação abortada"));
     });
-  }catch(e){ /* silencioso */ }
+    return { ok:true };
+  }catch(e){
+    console.warn("saveFileHandle falhou:", e);
+    return { ok:false, error: e.message || String(e) };
+  }
 }
 
 async function loadSavedFileHandle(){
@@ -2081,15 +2089,42 @@ async function loadSavedFileHandle(){
       req.onsuccess = () => resolve(req.result || null);
       req.onerror = () => reject(req.error);
     });
-  }catch(e){ return null; }
+  }catch(e){
+    console.warn("loadSavedFileHandle falhou:", e);
+    return null;
+  }
+}
+
+function setFileMemoryStatus(text, ok){
+  const el = $("fileMemoryStatus");
+  if(!el) return;
+  el.textContent = text;
+  el.classList.toggle("warn", !ok);
+  el.style.display = "block";
 }
 
 async function tryRestoreLastFile(){
-  const handle = await loadSavedFileHandle();
-  if(!handle) return;
+  if(!supportsFileHandles){
+    console.info("Restauração de arquivo: navegador sem suporte a File System Access API.");
+    return;
+  }
+
+  let handle;
+  try{
+    handle = await loadSavedFileHandle();
+  }catch(e){
+    console.warn("Falha ao ler handle salvo:", e);
+    return;
+  }
+
+  if(!handle){
+    console.info("Restauração de arquivo: nenhum handle salvo encontrado no IndexedDB.");
+    return;
+  }
 
   try{
     const perm = await handle.queryPermission({ mode: "read" });
+    console.info("Restauração de arquivo: handle encontrado, permissão =", perm);
 
     if(perm === "granted"){
       const file = await handle.getFile();
@@ -2100,7 +2135,9 @@ async function tryRestoreLastFile(){
     $("restoreFileText").textContent = `Base bruta usada da última vez: ${handle.name}. Clique para reconectar sem precisar re-selecionar o arquivo.`;
     $("restoreFileBanner").style.display = "flex";
 
-  }catch(e){ /* arquivo pode ter sido movido/apagado — ignora silenciosamente */ }
+  }catch(e){
+    console.warn("Restauração de arquivo falhou (arquivo pode ter sido movido/apagado):", e);
+  }
 }
 
 $("btnRestoreFile").addEventListener("click", async ()=>{
@@ -2126,8 +2163,13 @@ async function openRawFilePicker(){
         types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
       });
       const file = await handle.getFile();
-      await saveFileHandle(handle);
-      loadRawFile(file);
+      const saveResult = await saveFileHandle(handle);
+      await loadRawFile(file);
+      if(saveResult.ok){
+        setFileMemoryStatus("Arquivo será lembrado automaticamente após atualizar a página.", true);
+      }else{
+        setFileMemoryStatus(`Não foi possível lembrar este arquivo neste navegador (${saveResult.error}) — será preciso reimportar após atualizar.`, false);
+      }
     }catch(e){
       if(e.name !== "AbortError") showErr("Não foi possível abrir o arquivo.\n" + e.message);
     }
@@ -2164,15 +2206,25 @@ dropRaw.addEventListener("drop", async e=>{
       const handle = await item.getAsFileSystemHandle();
       if(handle && handle.kind === "file"){
         const file = await handle.getFile();
-        await saveFileHandle(handle);
-        loadRawFile(file);
+        const saveResult = await saveFileHandle(handle);
+        await loadRawFile(file);
+        if(saveResult.ok){
+          setFileMemoryStatus("Arquivo será lembrado automaticamente após atualizar a página.", true);
+        }else{
+          setFileMemoryStatus(`Não foi possível lembrar este arquivo neste navegador (${saveResult.error}) — será preciso reimportar após atualizar.`, false);
+        }
         return;
       }
-    }catch(err){ /* cai no fallback abaixo */ }
+    }catch(err){
+      console.warn("getAsFileSystemHandle falhou no drag-and-drop:", err);
+    }
   }
 
   const f = e.dataTransfer.files[0];
-  if(f) loadRawFile(f);
+  if(f){
+    await loadRawFile(f);
+    setFileMemoryStatus("Este navegador não deu pra guardar a referência deste arquivo pelo arraste — clique em vez de arrastar da próxima vez pra ele ser lembrado.", false);
+  }
 });
 
 fileInputRaw.addEventListener("change", e=>{
