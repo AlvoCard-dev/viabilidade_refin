@@ -163,6 +163,24 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .stage{min-width:0}
 .stage-flow{position:relative;padding:2px 0 76px 30px}
 .stage-flow:before{content:"";position:absolute;top:11px;bottom:64px;left:11px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.16) 85%,transparent)}
+
+/* ── Abas: Refinanciamento / Valor Presente ── */
+.tabbar{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab-btn{appearance:none;border:0;background:none;cursor:pointer;touch-action:manipulation;display:inline-flex;align-items:center;gap:8px;padding:10px 6px;margin-bottom:-1px;font-family:var(--sans);font-weight:600;font-size:13.5px;color:var(--faint);border-bottom:2px solid transparent;transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.tab-btn .ic{width:15px;height:15px}
+.tab-btn:hover{color:var(--ink-soft)}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--accent)}
+.tab-panel{min-width:0}
+.vp-badge{background:var(--tech-soft) !important;color:var(--tech-2) !important;border:1px solid rgba(139,124,246,.35);box-shadow:none !important;font-size:9px !important;letter-spacing:.02em}
+.vp-empty{display:flex;align-items:center;gap:12px;padding:20px 22px;color:var(--muted);font-size:13px;line-height:1.6}
+.vp-empty .ic{width:22px;height:22px;flex-shrink:0;color:var(--tech-2)}
+.vp-empty b{color:var(--ink-soft)}
+.vp-source{padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft)}
+.vp-source b{color:var(--ink);font-family:var(--mono)}
+#vpResultCard{display:none;margin-top:14px}
+#vpResultCard.show{display:flex}
+#vpProgWrap{display:none}
+#vpProgWrap.show{display:flex}
 .side:before{content:"";position:absolute;top:10px;bottom:26px;left:10px;width:1px;background:linear-gradient(180deg,rgba(255,255,255,.16),transparent)}
 
 /* ── Cabeçalhos de seção ── */
@@ -642,6 +660,18 @@ table.res tbody tr:hover td{background:var(--surface-3)}
 
 <main class="stage">
 
+  <div class="tabbar" role="tablist">
+    <button class="tab-btn active" id="tabBtnRefin" type="button" role="tab" aria-selected="true">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>
+      Refinanciamento
+    </button>
+    <button class="tab-btn" id="tabBtnVp" type="button" role="tab" aria-selected="false">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Valor Presente
+    </button>
+  </div>
+
+  <div class="tab-panel" id="panelRefin">
   <div class="stage-flow">
   <section class="sec">
     <div class="s-head">
@@ -671,11 +701,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <span class="runstatus" id="rawStatus"></span>
     </div>
     <div class="raw-progwrap" id="btnSaveRawCsvWrap" style="display:none">
-      <button class="btn btn-primary" id="btnDownloadVpOnly" type="button">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
-        Baixar Valor Presente (.csv)
-      </button>
-      <button class="btn btn-ghost" id="btnPublishShared" type="button">
+      <button class="btn btn-primary" id="btnPublishShared" type="button">
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10Z"/></svg>
         Publicar para todos
       </button>
@@ -683,7 +709,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
         Salvar cópia local
       </button>
-      <span class="auto-hint" id="publishHint">"Baixar" já entrega o Valor Presente, sem fazer refinanciamento. Selecione uma modalidade ao lado se quiser rodar a viabilidade com esses mesmos dados.</span>
+      <span class="auto-hint" id="publishHint">Quer só o Valor Presente numa outra data de referência? Use a aba "Valor Presente" acima.</span>
     </div>
     <div class="raw-progwrap" id="sharedInfoWrap" style="display:none">
       <span class="shared-badge" id="sharedInfo"></span>
@@ -916,6 +942,59 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       <span class="runinfo" id="outname"></span>
     </div>
   </section>
+  </div>
+  </div>
+
+  <div class="tab-panel" id="panelVp" style="display:none">
+    <section class="sec" style="margin-top:0">
+      <div class="s-head">
+        <span class="s-n vp-badge">VP</span><h2>Apenas Valor Presente</h2>
+        <span class="hint">Mesma base importada, outra data de referência</span>
+      </div>
+      <p class="raw-sub" style="margin-bottom:18px">Reaproveita o arquivo já importado na aba Refinanciamento — só recalcula o Valor Presente por CCB pra uma data de referência diferente (útil quando a data do saldo não é a mesma da operação). Não roda nenhuma modalidade nem mexe no resultado da outra aba.</p>
+
+      <div class="card vp-empty" id="vpEmptyState">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
+        Importe a base bruta na aba <b>Refinanciamento</b> primeiro — assim que carregar, ela fica disponível aqui também.
+      </div>
+
+      <div id="vpForm" style="display:none">
+        <div class="card vp-source" id="vpSourceInfo"></div>
+
+        <div class="field raw-date" style="margin-top:16px">
+          <label for="vpDate">Data de referência do Valor Presente</label>
+          <div class="inwrap">
+            <input id="vpDate" type="date">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnCalcVp" type="button" style="margin-top:14px">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          Calcular Valor Presente
+        </button>
+
+        <div class="raw-progwrap" id="vpProgWrap" style="margin-top:14px">
+          <div class="progress" id="vpProg"><div id="vpProgbar"></div></div>
+          <span class="runstatus" id="vpStatus"></span>
+        </div>
+
+        <div class="card filecard" id="vpResultCard">
+          <span class="ficon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+          </span>
+          <span class="fname" id="vpResultFname">Valor Presente calculado</span>
+          <span class="fmeta" id="vpResultMeta"></span>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost" id="btnDownloadVp" type="button">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+            Baixar (.csv)
+          </button>
+          <span class="fstats show" id="vpResultStats"></span>
+        </div>
+
+        <div class="alert err" id="vpAlertErr" role="alert"></div>
+      </div>
+    </section>
   </div>
 
 </main>
@@ -1808,6 +1887,8 @@ async function processRawDatacobFile(file, dataInputMs, onProgress){
 }
 
 let lastRawGroupedRows = null;
+let lastImportedRawFile = null;
+let vpResultRows = null;
 
 function toBRLNumberString(n){
   if(typeof n !== "number" || !isFinite(n)) return n ?? "";
@@ -1872,11 +1953,7 @@ $("btnSaveRawCsv").addEventListener("click", async ()=>{
   }
 });
 
-$("btnDownloadVpOnly").addEventListener("click", ()=>{
-  if(!lastRawGroupedRows) return;
-  const dataInputStr = $("rawDataInput").value || "data";
-  downloadTextFile(buildAgrupadoCsvText(lastRawGroupedRows), `Valor_Presente_${dataInputStr}.csv`);
-});
+
 
 /* =====================================================================
    BASE COMPARTILHADA (Supabase) — "publicar para todos"
@@ -1973,6 +2050,9 @@ async function loadRawFile(file){
     showErr("A base bruta precisa ter extensão .csv.");
     return;
   }
+
+  lastImportedRawFile = file;
+  setupVpTabForFile(file);
 
   const dataInputStr = $("rawDataInput").value;
   if(!dataInputStr){
@@ -2071,6 +2151,101 @@ function downloadTextFile(text, filename, mime){
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+
+/* =====================================================================
+   ABAS: Refinanciamento / Valor Presente
+   ===================================================================== */
+
+function selectTab(tab){
+  const isRefin = tab === "refin";
+
+  $("tabBtnRefin").classList.toggle("active", isRefin);
+  $("tabBtnRefin").setAttribute("aria-selected", String(isRefin));
+  $("tabBtnVp").classList.toggle("active", !isRefin);
+  $("tabBtnVp").setAttribute("aria-selected", String(!isRefin));
+
+  $("panelRefin").style.display = isRefin ? "" : "none";
+  $("panelVp").style.display = isRefin ? "none" : "";
+}
+
+$("tabBtnRefin").addEventListener("click", ()=>selectTab("refin"));
+$("tabBtnVp").addEventListener("click", ()=>selectTab("vp"));
+
+function setupVpTabForFile(file){
+  $("vpEmptyState").style.display = "none";
+  $("vpForm").style.display = "block";
+  $("vpSourceInfo").innerHTML = `Usando o arquivo importado na aba Refinanciamento: <b>${escapeHtml(file.name)}</b> (${(file.size/1024/1024).toFixed(2)} MB)`;
+
+  if(!$("vpDate").value){
+    $("vpDate").value = $("rawDataInput").value || new Date().toISOString().slice(0,10);
+  }
+}
+
+$("btnCalcVp").addEventListener("click", async ()=>{
+  if(!lastImportedRawFile) return;
+
+  const dataInputStr = $("vpDate").value;
+  if(!dataInputStr){
+    $("vpAlertErr").textContent = "Informe a data de referência do Valor Presente.";
+    $("vpAlertErr").classList.add("show");
+    return;
+  }
+
+  $("vpAlertErr").classList.remove("show");
+  $("vpResultCard").classList.remove("show");
+  vpResultRows = null;
+
+  const [y, m, d] = dataInputStr.split("-").map(Number);
+  const dataInputMs = Date.UTC(y, m-1, d);
+
+  $("vpProgWrap").classList.add("show");
+  $("vpProgbar").style.width = "0%";
+  $("vpStatus").textContent = "Lendo arquivo...";
+
+  const btn = $("btnCalcVp");
+  btn.disabled = true;
+
+  try{
+    const { rows, stats } = await processRawDatacobFile(lastImportedRawFile, dataInputMs, pct=>{
+      $("vpProgbar").style.width = pct + "%";
+      $("vpStatus").textContent = `Processando... ${pct}%`;
+    });
+
+    $("vpStatus").textContent = "Concluído";
+
+    if(!rows.length){
+      $("vpAlertErr").textContent = "Nenhuma linha com Status = \"A\" e dados válidos foi encontrada na base bruta.";
+      $("vpAlertErr").classList.add("show");
+      return;
+    }
+
+    vpResultRows = rows;
+
+    $("vpResultMeta").textContent = `${rows.length.toLocaleString("pt-BR")} CCBs | referência ${dataInputStr.split("-").reverse().join("/")}`;
+    $("vpResultStats").textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas`;
+    $("vpResultCard").classList.add("show");
+
+  }catch(err){
+    $("vpStatus").textContent = "Erro";
+    $("vpAlertErr").textContent = "Não foi possível calcular o Valor Presente.\n" + err.message;
+    $("vpAlertErr").classList.add("show");
+
+  }finally{
+    btn.disabled = false;
+    setTimeout(()=>{
+      $("vpProg").classList.remove("show");
+      $("vpProgWrap").classList.remove("show");
+    }, 900);
+  }
+});
+
+$("btnDownloadVp").addEventListener("click", ()=>{
+  if(!vpResultRows) return;
+  const dataInputStr = $("vpDate").value || "data";
+  downloadTextFile(buildAgrupadoCsvText(vpResultRows), `Valor_Presente_${dataInputStr}.csv`);
+});
+
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -2677,6 +2852,7 @@ $("btnDownloadFiltered").addEventListener("click", ()=>{
   if(!resultRows) return;
   exportWorkbook(resultRows, "dashboard_filtrado");
 });
+
 </script>
 </body>
 </html>
