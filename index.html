@@ -176,6 +176,8 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .vp-empty .ic{width:22px;height:22px;flex-shrink:0;color:var(--tech-2)}
 .vp-empty b{color:var(--ink-soft)}
 .vp-source{padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft)}
+.vp-source .ic{width:16px;height:16px;flex-shrink:0;color:var(--tech-2)}
+.vp-source .spacer{flex:1}
 .vp-source b{color:var(--ink);font-family:var(--mono)}
 #vpResultCard{display:none;margin-top:14px}
 #vpResultCard.show{display:flex}
@@ -542,6 +544,7 @@ table.res tbody tr:hover td{background:var(--surface-3)}
     document.documentElement.style.overflow = "";
     window.__refinUnlocked = true;
     if(window.loadSharedDataIntoApp) window.loadSharedDataIntoApp();
+    if(window.tryRestoreLastFile) window.tryRestoreLastFile();
   }
 
   if(sessionStorage.getItem(SESSION_KEY) === "1"){
@@ -686,6 +689,13 @@ table.res tbody tr:hover td{background:var(--surface-3)}
       </div>
     </div>
 
+    <div class="card vp-source" id="restoreFileBanner" style="display:none;margin-bottom:12px">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>
+      <span id="restoreFileText"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" id="btnRestoreFile" type="button">Reconectar arquivo</button>
+    </div>
+
     <div class="drop" id="dropRaw" tabindex="0" role="button" aria-label="Selecionar base bruta do Datacob">
       <span class="drop-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
@@ -714,29 +724,6 @@ table.res tbody tr:hover td{background:var(--surface-3)}
     <div class="raw-progwrap" id="sharedInfoWrap" style="display:none">
       <span class="shared-badge" id="sharedInfo"></span>
     </div>
-
-    <details class="raw-block" id="prontoDetails">
-      <summary>Já tem o agrupado por CCB pronto? Importar direto</summary>
-      <div class="raw-body">
-        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Selecionar base Datacob">
-          <span class="drop-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 15.9 7 4.5 4.5 0 0 1 17 15.9"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>
-          </span>
-          <div>
-            <div class="big">Importar Relatorio - VP_agrupado_por_ccb</div>
-            <div class="sub">Arraste o .csv já agrupado (gerado aqui ou pelo Valor_Presente_Datacob.py) aqui, ou clique para selecionar.</div>
-          </div>
-        </div>
-        <input type="file" id="fileInput" accept=".csv,.xlsx" hidden>
-        <div class="auto-row">
-          <button class="btn btn-ghost" id="btnAutoLoad" type="button">
-            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
-            Carregar/atualizar automaticamente
-          </button>
-          <span class="auto-hint" id="autoHint">Lê direto de <code>VP - DataCob/Relatorio - VP_agrupado_por_ccb.csv</code> — só funciona abrindo pelo servidor local (veja "iniciar.bat").</span>
-        </div>
-      </div>
-    </details>
 
     <div class="card filecard" id="filecard">
       <span class="ficon" aria-hidden="true">
@@ -1451,39 +1438,6 @@ function paramsOk(){
    UPLOAD
    ===================================================================== */
 
-const drop = $("drop");
-const fileInput = $("fileInput");
-
-drop.addEventListener("click", ()=>fileInput.click());
-
-drop.addEventListener("keydown", e=>{
-  if(e.key==="Enter" || e.key===" "){
-    e.preventDefault();
-    fileInput.click();
-  }
-});
-
-["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev, e=>{
-  e.preventDefault();
-  drop.classList.add("over");
-}));
-
-["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{
-  e.preventDefault();
-  drop.classList.remove("over");
-}));
-
-drop.addEventListener("drop", e=>{
-  const f = e.dataTransfer.files[0];
-  if(f) loadFile(f);
-});
-
-fileInput.addEventListener("change", e=>{
-  const f = e.target.files[0];
-  if(f) loadFile(f);
-  fileInput.value = "";
-});
-
 $("btnClear").addEventListener("click", ()=>{
   baseData = null;
   filterState = {};
@@ -1601,83 +1555,6 @@ function ingestRows(rawRows, sourceName, sourceSizeBytes, horarioLabel){
   refreshRunState();
   return true;
 }
-
-function loadFile(f){
-  hideAlerts();
-  hideResults();
-
-  const isCsv = /\.csv$/i.test(f.name);
-  const isXlsx = /\.xlsx$/i.test(f.name);
-
-  if(!isCsv && !isXlsx){
-    showErr("O arquivo precisa ter extensão .csv ou .xlsx.");
-    return;
-  }
-
-  const rd = new FileReader();
-
-  rd.onload = e => {
-    try{
-      const rawRows = isCsv
-        ? parseCsv(e.target.result)
-        : (() => {
-            const wb = XLSX.read(e.target.result, { type:"array" });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            return XLSX.utils.sheet_to_json(ws, { defval:null, raw:true });
-          })();
-
-      const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-      ingestRows(rawRows, f.name, f.size, horario);
-
-    }catch(err){
-      showErr("Não foi possível ler o arquivo.\n" + err.message);
-    }
-  };
-
-  if(isCsv) rd.readAsText(f, "utf-8");
-  else rd.readAsArrayBuffer(f);
-}
-
-const AUTO_CSV_PATH = "VP - DataCob/Relatorio - VP_agrupado_por_ccb.csv";
-
-async function autoLoadCsv(silent){
-  const btn = $("btnAutoLoad");
-  const hint = $("autoHint");
-  const hintOriginal = hint ? hint.textContent : "";
-
-  if(btn) btn.disabled = true;
-  if(hint) hint.textContent = "Verificando arquivo mais recente...";
-
-  try{
-    const res = await fetch(encodeURI(AUTO_CSV_PATH) + "?t=" + Date.now(), { cache:"no-store" });
-    if(!res.ok) throw new Error(`Arquivo não encontrado (HTTP ${res.status}).`);
-
-    const text = await res.text();
-    const rawRows = parseCsv(text);
-    const horario = new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-
-    hideAlerts();
-    hideResults();
-
-    const ok = ingestRows(rawRows, "Relatorio - VP_agrupado_por_ccb.csv", new Blob([text]).size, horario);
-    if(hint) hint.textContent = hintOriginal;
-    return ok;
-
-  }catch(err){
-    if(!silent){
-      showErr("Não foi possível carregar a base automaticamente.\n" + err.message + "\n\nAbra a página pelo servidor local (iniciar.bat) ou importe o arquivo manualmente.");
-    }
-    if(hint) hint.textContent = hintOriginal;
-    return false;
-
-  }finally{
-    if(btn) btn.disabled = false;
-  }
-}
-
-$("btnAutoLoad").addEventListener("click", ()=>autoLoadCsv(false));
-
-autoLoadCsv(true);
 
 /* =====================================================================
    BASE BRUTA DO DATACOB -> VALOR PRESENTE + AGRUPADO POR CCB
@@ -2062,6 +1939,7 @@ async function loadSharedDataIntoApp(){
 }
 
 if(window.__refinUnlocked) loadSharedDataIntoApp();
+if(window.__refinUnlocked) tryRestoreLastFile();
 
 $("btnPublishShared").addEventListener("click", async ()=>{
   if(!lastRawGroupedRows) return;
@@ -2087,6 +1965,7 @@ async function loadRawFile(file){
   hideResults();
   $("btnSaveRawCsvWrap").style.display = "none";
   $("sharedInfoWrap").style.display = "none";
+  $("restoreFileBanner").style.display = "none";
   $("fstats").classList.remove("show");
   lastRawGroupedRows = null;
 
@@ -2155,12 +2034,107 @@ const fileInputRaw = $("fileInputRaw");
 
 $("rawDataInput").value = new Date().toISOString().slice(0,10);
 
-dropRaw.addEventListener("click", ()=>fileInputRaw.click());
+/* =====================================================================
+   LEMBRAR O ARQUIVO ENTRE RECARREGAMENTOS DA PÁGINA
+   Usa a File System Access API (Chrome/Edge/Opera) pra guardar uma
+   referência ao arquivo (não o conteúdo) no IndexedDB. Ao recarregar,
+   tenta reabrir automaticamente (ou pede 1 clique, se o navegador exigir
+   confirmação de permissão).
+   ===================================================================== */
+
+const supportsFileHandles = "showOpenFilePicker" in window && "indexedDB" in window;
+
+function openHandleDb(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open("refinFileHandles", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("handles");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveFileHandle(handle){
+  if(!supportsFileHandles) return;
+  try{
+    const db = await openHandleDb();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handle, "lastRawFile");
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(e){ /* silencioso */ }
+}
+
+async function loadSavedFileHandle(){
+  if(!supportsFileHandles) return null;
+  try{
+    const db = await openHandleDb();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction("handles", "readonly");
+      const req = tx.objectStore("handles").get("lastRawFile");
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(e){ return null; }
+}
+
+async function tryRestoreLastFile(){
+  const handle = await loadSavedFileHandle();
+  if(!handle) return;
+
+  try{
+    const perm = await handle.queryPermission({ mode: "read" });
+
+    if(perm === "granted"){
+      const file = await handle.getFile();
+      loadRawFile(file);
+      return;
+    }
+
+    $("restoreFileText").textContent = `Base bruta usada da última vez: ${handle.name}. Clique para reconectar sem precisar re-selecionar o arquivo.`;
+    $("restoreFileBanner").style.display = "flex";
+
+  }catch(e){ /* arquivo pode ter sido movido/apagado — ignora silenciosamente */ }
+}
+
+$("btnRestoreFile").addEventListener("click", async ()=>{
+  const handle = await loadSavedFileHandle();
+  if(!handle) return;
+
+  try{
+    const perm = await handle.requestPermission({ mode: "read" });
+    if(perm !== "granted") return;
+
+    $("restoreFileBanner").style.display = "none";
+    const file = await handle.getFile();
+    loadRawFile(file);
+  }catch(e){
+    showErr("Não foi possível reconectar o arquivo.\n" + e.message);
+  }
+});
+
+dropRaw.addEventListener("click", async ()=>{
+  if(supportsFileHandles){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
+      });
+      const file = await handle.getFile();
+      await saveFileHandle(handle);
+      loadRawFile(file);
+    }catch(e){
+      if(e.name !== "AbortError") showErr("Não foi possível abrir o arquivo.\n" + e.message);
+    }
+    return;
+  }
+  fileInputRaw.click();
+});
 
 dropRaw.addEventListener("keydown", e=>{
   if(e.key==="Enter" || e.key===" "){
     e.preventDefault();
-    fileInputRaw.click();
+    dropRaw.click();
   }
 });
 
@@ -2174,7 +2148,21 @@ dropRaw.addEventListener("keydown", e=>{
   dropRaw.classList.remove("over");
 }));
 
-dropRaw.addEventListener("drop", e=>{
+dropRaw.addEventListener("drop", async e=>{
+  const item = e.dataTransfer.items && e.dataTransfer.items[0];
+
+  if(supportsFileHandles && item && item.getAsFileSystemHandle){
+    try{
+      const handle = await item.getAsFileSystemHandle();
+      if(handle && handle.kind === "file"){
+        const file = await handle.getFile();
+        await saveFileHandle(handle);
+        loadRawFile(file);
+        return;
+      }
+    }catch(err){ /* cai no fallback abaixo */ }
+  }
+
   const f = e.dataTransfer.files[0];
   if(f) loadRawFile(f);
 });
