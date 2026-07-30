@@ -1873,35 +1873,50 @@ const SUPABASE_URL = "https://xobtvoganslqhwledysq.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvYnR2b2dhbnNscWh3bGVkeXNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1OTUyMjEsImV4cCI6MjA5NzE3MTIyMX0.E0kES6d1-jr3yxWFC4ZsE8MQ7ttOR5dOHovJiZtjXkA";
 const sbClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+const SHARED_BUCKET = "shared-data";
+const SHARED_PATH = "agrupado_ccb.csv";
+
 async function publishSharedData(rows){
   if(!sbClient) throw new Error("Cliente Supabase não carregou (verifique a conexão).");
-  const { error } = await sbClient.from("agrupado_ccb").insert({ data: rows });
+
+  const text = buildAgrupadoCsvText(rows);
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+
+  const { error } = await sbClient.storage.from(SHARED_BUCKET).upload(SHARED_PATH, blob, {
+    upsert: true,
+    contentType: "text/csv;charset=utf-8",
+    cacheControl: "0"
+  });
+
   if(error) throw new Error(error.message);
 }
 
 async function fetchSharedData(){
   if(!sbClient) return null;
 
-  const { data, error } = await sbClient
-    .from("agrupado_ccb")
-    .select("data, atualizado_em")
-    .order("atualizado_em", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: pub } = sbClient.storage.from(SHARED_BUCKET).getPublicUrl(SHARED_PATH);
+  if(!pub || !pub.publicUrl) return null;
 
-  if(error || !data) return null;
-  return data;
+  const res = await fetch(pub.publicUrl + "?t=" + Date.now(), { cache: "no-store" });
+  if(!res.ok) return null;
+
+  const text = await res.text();
+  if(!text.trim()) return null;
+
+  const rows = parseCsv(text);
+  if(!rows.length) return null;
+
+  const lastModified = res.headers.get("last-modified");
+  return { rows, size: text.length, updatedAt: lastModified ? new Date(lastModified) : new Date() };
 }
 
 async function loadSharedDataIntoApp(){
   try{
     const shared = await fetchSharedData();
-    if(!shared || !Array.isArray(shared.data) || !shared.data.length) return;
+    if(!shared || !shared.rows.length) return;
 
-    const dt = new Date(shared.atualizado_em);
-    const horario = dt.toLocaleDateString("pt-BR") + " às " + dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-    const approxSize = new Blob([JSON.stringify(shared.data)]).size;
-    const ok = ingestRows(shared.data, "Base compartilhada (publicada por alguém do time)", approxSize, horario);
+    const horario = shared.updatedAt.toLocaleDateString("pt-BR") + " às " + shared.updatedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    const ok = ingestRows(shared.rows, "Base compartilhada (publicada por alguém do time)", shared.size, horario);
 
     if(ok){
       $("sharedInfoWrap").style.display = "flex";
