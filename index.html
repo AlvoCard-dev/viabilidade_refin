@@ -176,6 +176,8 @@ svg.ic{width:1em;height:1em;flex-shrink:0;stroke:currentColor;fill:none;stroke-w
 .tab-panel{min-width:0}
 .vp-badge{background:var(--tech-soft) !important;color:var(--tech-2) !important;border:1px solid rgba(139,124,246,.35);box-shadow:none !important;font-size:9px !important;letter-spacing:.02em}
 .vp-empty{display:flex;align-items:center;gap:12px;padding:20px 22px;color:var(--muted);font-size:13px;line-height:1.6}
+.vp-analytical-toggle{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;user-select:none}
+.vp-analytical-toggle input{width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:var(--accent)}
 .vp-empty .ic{width:22px;height:22px;flex-shrink:0;color:var(--tech-2)}
 .vp-empty b{color:var(--ink-soft)}
 .vp-source{padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft)}
@@ -1020,6 +1022,11 @@ table.res tbody tr:hover td{background:var(--surface-3)}
               </div>
             </div>
 
+            <label class="vp-analytical-toggle" for="vpAnalyticalToggle">
+              <input type="checkbox" id="vpAnalyticalToggle">
+              Visão analítica (parcela a parcela)
+            </label>
+
             <button class="btn btn-primary" id="btnCalcVp" type="button" style="margin-top:14px">
               <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
               Calcular Valor Presente
@@ -1042,6 +1049,21 @@ table.res tbody tr:hover td{background:var(--surface-3)}
                 Baixar (.csv)
               </button>
               <span class="fstats show" id="vpResultStats"></span>
+            </div>
+
+            <div class="card" id="vpAnaliticoCard" style="display:none;margin-top:14px">
+              <div class="filters-card-title" style="padding:14px 16px 0">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m8 15 3-4 3 2 4-6"/></svg>
+                Detalhe por parcela
+              </div>
+              <div class="tablewrap" style="margin:12px 16px 0"><table class="res" id="vpAnaliticoTable"></table></div>
+              <div class="res-actions" style="padding:14px 16px">
+                <button class="btn btn-ghost" id="btnDownloadVpAnalitico" type="button">
+                  <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+                  Baixar detalhe por parcela (.csv)
+                </button>
+                <span class="truncnote" id="vpAnaliticoNote"></span>
+              </div>
             </div>
           </div>
         </details>
@@ -1690,7 +1712,10 @@ async function detectEncodingJS(file){
   }
 }
 
-async function processRawDatacobFile(file, dataInputMs, onProgress){
+async function processRawDatacobFile(file, dataInputMs, onProgress, options){
+  const analytical = !!(options && options.analytical);
+  const analiticoRows = analytical ? [] : null;
+
   const encoding = await detectEncodingJS(file);
 
   const headerBuf = await file.slice(0, 65536).arrayBuffer();
@@ -1774,6 +1799,17 @@ async function processRawDatacobFile(file, dataInputMs, onProgress){
     gruposSaldo.set(ccb, (gruposSaldo.get(ccb)||0) + saldo);
     gruposQtd.set(ccb, (gruposQtd.get(ccb)||0) + 1);
 
+    if(analytical){
+      analiticoRows.push({
+        CCB: ccb,
+        "Data Vencimento": get(idx.venc),
+        Dias: dias,
+        "Valor Saldo (PMT)": Math.round(saldo * 100) / 100,
+        "Taxa Contrato": taxa,
+        "Valor Presente": Math.round(vp * 100) / 100
+      });
+    }
+
     if(!gruposInfo.has(ccb)){
       gruposInfo.set(ccb, {
         Convenio: get(colunasExtras.Convenio),
@@ -1829,12 +1865,13 @@ async function processRawDatacobFile(file, dataInputMs, onProgress){
   }
   rows.sort((a,b)=> String(a.CCB).localeCompare(String(b.CCB), "pt-BR"));
 
-  return { rows, stats: { totalLinhas, foraStatus, dataInvalida, ccbs: rows.length } };
+  return { rows, stats: { totalLinhas, foraStatus, dataInvalida, ccbs: rows.length }, analiticoRows };
 }
 
 let lastRawGroupedRows = null;
 let lastImportedRawFile = null;
 let vpResultRows = null;
+let vpAnaliticoRows = null;
 let vpFilterState = {};
 
 function toBRLNumberString(n){
@@ -1856,6 +1893,52 @@ function buildAgrupadoCsvText(rows){
   }
 
   return "﻿" + lines.join("\r\n") + "\r\n";
+}
+
+function buildAnaliticoCsvText(rows){
+  const cols = ["CCB","Data Vencimento","Dias","Valor Saldo (PMT)","Taxa Contrato","Valor Presente"];
+  const decimais = new Set(["Valor Saldo (PMT)","Taxa Contrato","Valor Presente"]);
+
+  const lines = [cols.join(";")];
+  for(const r of rows){
+    lines.push(cols.map(c=>{
+      const v = r[c];
+      if(c === "Dias") return String(v ?? "");
+      return decimais.has(c) ? toBRLNumberString(v) : (v ?? "");
+    }).join(";"));
+  }
+
+  return "﻿" + lines.join("\r\n") + "\r\n";
+}
+
+const VP_ANALITICO_PREVIEW_LIMIT = 300;
+
+function renderVpAnaliticoTable(rows){
+  const cols = ["CCB","Data Vencimento","Dias","Valor Saldo (PMT)","Taxa Contrato","Valor Presente"];
+  const table = $("vpAnaliticoTable");
+  const preview = rows.slice(0, VP_ANALITICO_PREVIEW_LIMIT);
+
+  const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>`;
+  const tbody = `<tbody>${preview.map(r=>{
+    return `<tr>${cols.map(c=>{
+      const v = r[c];
+      let out;
+      if(c === "Dias") out = v ?? "";
+      else if(c === "Valor Saldo (PMT)" || c === "Valor Presente") out = typeof v === "number" ? v.toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}) : (v ?? "");
+      else if(c === "Taxa Contrato") out = typeof v === "number" ? v.toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}) + "%" : (v ?? "");
+      else out = v ?? "";
+      return `<td>${escapeHtml(String(out))}</td>`;
+    }).join("")}</tr>`;
+  }).join("")}</tbody>`;
+
+  table.innerHTML = thead + tbody;
+
+  const note = $("vpAnaliticoNote");
+  if(rows.length > VP_ANALITICO_PREVIEW_LIMIT){
+    note.textContent = `Exibindo ${VP_ANALITICO_PREVIEW_LIMIT.toLocaleString("pt-BR")} de ${rows.length.toLocaleString("pt-BR")} parcelas na prévia — baixe o CSV para ver todas.`;
+  }else{
+    note.textContent = `${rows.length.toLocaleString("pt-BR")} parcelas.`;
+  }
 }
 
 async function saveAgrupadoCsv(rows){
@@ -2420,7 +2503,11 @@ $("btnCalcVp").addEventListener("click", async ()=>{
 
   $("vpAlertErr").classList.remove("show");
   $("vpResultCard").classList.remove("show");
+  $("vpAnaliticoCard").style.display = "none";
   vpResultRows = null;
+  vpAnaliticoRows = null;
+
+  const analytical = $("vpAnalyticalToggle").checked;
 
   const [y, m, d] = dataInputStr.split("-").map(Number);
   const dataInputMs = Date.UTC(y, m-1, d);
@@ -2433,10 +2520,10 @@ $("btnCalcVp").addEventListener("click", async ()=>{
   btn.disabled = true;
 
   try{
-    const { rows, stats } = await processRawDatacobFile(lastImportedRawFile, dataInputMs, pct=>{
+    const { rows, stats, analiticoRows } = await processRawDatacobFile(lastImportedRawFile, dataInputMs, pct=>{
       $("vpProgbar").style.width = pct + "%";
       $("vpStatus").textContent = `Processando... ${pct}%`;
-    });
+    }, { analytical });
 
     $("vpStatus").textContent = "Concluído";
 
@@ -2461,6 +2548,12 @@ $("btnCalcVp").addEventListener("click", async ()=>{
     $("vpResultStats").textContent = `${stats.totalLinhas.toLocaleString("pt-BR")} linhas lidas · ${stats.foraStatus.toLocaleString("pt-BR")} fora do Status "A" · ${stats.dataInvalida.toLocaleString("pt-BR")} inválidas`;
     $("vpResultCard").classList.add("show");
 
+    if(analytical && analiticoRows){
+      vpAnaliticoRows = analiticoRows.filter(r => allowedCcbs.has(r.CCB));
+      renderVpAnaliticoTable(vpAnaliticoRows);
+      $("vpAnaliticoCard").style.display = "block";
+    }
+
   }catch(err){
     $("vpStatus").textContent = "Erro";
     $("vpAlertErr").textContent = "Não foi possível calcular o Valor Presente.\n" + err.message;
@@ -2479,6 +2572,12 @@ $("btnDownloadVp").addEventListener("click", ()=>{
   if(!vpResultRows) return;
   const dataInputStr = $("vpDate").value || "data";
   downloadTextFile(buildAgrupadoCsvText(vpResultRows), `Valor_Presente_${dataInputStr}.csv`);
+});
+
+$("btnDownloadVpAnalitico").addEventListener("click", ()=>{
+  if(!vpAnaliticoRows || !vpAnaliticoRows.length) return;
+  const dataInputStr = $("vpDate").value || "data";
+  downloadTextFile(buildAnaliticoCsvText(vpAnaliticoRows), `Valor_Presente_detalhe_parcela_${dataInputStr}.csv`);
 });
 
 
